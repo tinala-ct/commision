@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ระบบคำนวณค่าคอมมิชชั่น (Commission Calculator)</title>
+  <title>ระบบคำนวณค่าคอมมิชชั่นอสังหาริมทรัพย์ (Commission Calculator & Tiered)</title>
   
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Prompt:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
   
-  <!-- Chart.js CDN for Pastel Pie Chart -->
+  <!-- Chart.js CDN for Pastel Charts -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   
   <!-- Lucide Icons -->
@@ -28,10 +28,10 @@
   <div class="min-h-screen flex flex-col justify-between py-6 px-4 sm:px-6 lg:px-8 max-w-6xl mx-auto">
     
     <!-- Top Header -->
-    <header class="mb-8">
-      <div class="flex flex-col sm:flex-row items-center justify-between gap-4 glass-card p-6 bg-white/70">
+    <header class="mb-6">
+      <div class="flex flex-col sm:flex-row items-center justify-between gap-4 glass-card p-5 sm:p-6 bg-white/75">
         <div class="flex items-center gap-4">
-          <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-purple-300 via-pink-200 to-sky-200 flex items-center justify-center shadow-inner text-purple-700">
+          <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-purple-300 via-pink-200 to-sky-200 flex items-center justify-center shadow-inner text-purple-700 shrink-0">
             <i data-lucide="calculator" class="w-8 h-8"></i>
           </div>
           <div>
@@ -39,9 +39,9 @@
               <h1 class="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-purple-700 via-pink-600 to-sky-600 bg-clip-text text-transparent">
                 คำนวณ ค่าคอมมิชชั่น
               </h1>
-              <span class="badge-pastel-purple text-xs font-semibold px-2.5 py-0.5 rounded-full">v1.0</span>
+              <span class="badge-pastel-purple text-xs font-semibold px-2.5 py-0.5 rounded-full">v2.0 Tiered</span>
             </div>
-            <p class="text-sm text-slate-500 mt-0.5">ระบบคำนวณส่วนแบ่งค่าคอมมิชชั่นอสังหาริมทรัพย์และคำนวณเป้าหมายยอดขาย</p>
+            <p class="text-xs sm:text-sm text-slate-500 mt-0.5">ระบบคำนวณส่วนแบ่งค่าคอมมิชชั่นอสังหาริมทรัพย์ และคำนวณสะสมตาม Tier ขั้นบันไดรายเดือน</p>
           </div>
         </div>
 
@@ -57,58 +57,339 @@
           </button>
         </div>
       </div>
+
+      <!-- Mode Switcher Tabs -->
+      <div class="mt-4 p-1.5 glass-card bg-slate-100/80 rounded-2xl flex flex-col sm:flex-row gap-1.5 no-print">
+        <button id="tabBtnTier" class="tab-btn active flex-1 py-3 px-4 flex items-center justify-center gap-2 text-sm font-bold rounded-xl transition">
+          <i data-lucide="trending-up" class="w-4 h-4 text-purple-600"></i>
+          <span>📈 คำนวณสะสมตาม Tier รายเดือน (ยอดขายปิดได้)</span>
+          <span class="badge-pastel-peach text-[10px] px-2 py-0.5 rounded-full font-bold">แนะนำ</span>
+        </button>
+        <button id="tabBtnSingle" class="tab-btn flex-1 py-3 px-4 flex items-center justify-center gap-2 text-sm font-bold rounded-xl transition">
+          <i data-lucide="home" class="w-4 h-4 text-sky-600"></i>
+          <span>🏠 คำนวณรายหลัง & คำนวณกลับ (Single Deal)</span>
+        </button>
+      </div>
     </header>
 
-    <!-- Main Grid Content -->
-    <main class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+    <!-- Global Settings Section (Collapsible/Editable) -->
+    <section class="glass-card p-5 mb-6 border-t-4 border-t-purple-300">
+      <div class="flex items-center justify-between cursor-pointer select-none" id="settingsToggleHeader">
+        <div class="flex items-center gap-2">
+          <span class="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center text-purple-600">
+            <i data-lucide="sliders" class="w-4 h-4"></i>
+          </span>
+          <div>
+            <h2 class="text-base font-bold text-slate-800">ตั้งค่าอัตราส่วนแบ่งและเกณฑ์ Tier (%)</h2>
+            <p class="text-xs text-slate-500">ปรับแต่ง % ค่าคอมบริษัท และ % ส่วนแบ่งพนักงานแต่ละ Tier</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-3">
+          <button id="resetSettingsBtn" class="text-xs text-slate-500 hover:text-purple-600 flex items-center gap-1 transition no-print">
+            <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+            <span>รีเซ็ตค่าเริ่มต้น</span>
+          </button>
+          <button id="settingsChevronBtn" class="p-1 text-slate-400 hover:text-slate-600">
+            <i data-lucide="chevron-down" id="settingsChevronIcon" class="w-5 h-5 transition-transform duration-200"></i>
+          </button>
+        </div>
+      </div>
 
-      <!-- LEFT COLUMN: Settings & Inputs (7 Cols) -->
-      <div class="lg:col-span-7 space-y-6">
-
-        <!-- 1. ตั้งค่า (Settings) Card -->
-        <section class="glass-card p-6 border-t-4 border-t-purple-300">
-          <div class="flex items-center justify-between mb-4">
-            <div class="flex items-center gap-2">
-              <span class="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center text-purple-600">
-                <i data-lucide="sliders" class="w-4 h-4"></i>
-              </span>
-              <h2 class="text-lg font-bold text-slate-800">ตั้งค่าอัตราส่วนแบ่ง (%)</h2>
+      <!-- Settings Form Body -->
+      <div id="settingsBody" class="mt-4 pt-4 border-t border-slate-100">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
+          
+          <!-- Company Base Rate -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">
+              🏢 บริษัทได้ค่าคอม
+            </label>
+            <div class="highlight-input-container flex items-center px-3 py-1.5">
+              <input type="number" id="companyRate" value="3" step="0.1" min="0" max="100" class="highlight-input text-base text-center font-bold">
+              <span class="text-xs font-semibold text-slate-700 ml-1">%</span>
             </div>
-            <button id="resetSettingsBtn" class="text-xs text-slate-500 hover:text-purple-600 flex items-center gap-1 transition no-print">
-              <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
-              <span>รีเซ็ตค่าเริ่มต้น</span>
-            </button>
+            <p class="text-[10px] text-slate-400 mt-1">จากราคาขายบ้าน</p>
           </div>
 
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-            <!-- Company Rate Setting -->
-            <div>
-              <label class="block text-xs font-semibold text-slate-600 mb-1.5">
-                🏢 บริษัทได้ค่าคอม
-              </label>
-              <div class="highlight-input-container flex items-center px-3 py-2">
-                <input type="number" id="companyRate" value="3" step="0.1" min="0" max="100" class="highlight-input text-lg text-center font-bold">
-                <span class="text-sm font-semibold text-slate-700 ml-1">%</span>
-              </div>
-              <p class="text-[11px] text-slate-400 mt-1">อัตราค่าคอมจากราคาบ้าน</p>
+          <!-- Single Mode Sales Rate -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-600 mb-1">
+              👤 พนักงาน (โหมดเดี่ยว)
+            </label>
+            <div class="highlight-input-container flex items-center px-3 py-1.5">
+              <input type="number" id="salesRate" value="7" step="0.1" min="0" max="100" class="highlight-input text-base text-center font-bold">
+              <span class="text-xs font-semibold text-slate-700 ml-1">%</span>
             </div>
-
-            <!-- Salesperson Rate Setting -->
-            <div>
-              <label class="block text-xs font-semibold text-slate-600 mb-1.5">
-                👤 พนักงานขายได้
-              </label>
-              <div class="highlight-input-container flex items-center px-3 py-2">
-                <input type="number" id="salesRate" value="7" step="0.1" min="0" max="100" class="highlight-input text-lg text-center font-bold">
-                <span class="text-sm font-semibold text-slate-700 ml-1">%</span>
-              </div>
-              <p class="text-[11px] text-slate-400 mt-1">% ของบริษัทได้ค่าคอม</p>
-            </div>
+            <p class="text-[10px] text-slate-400 mt-1">% ของค่าคอมบริษัท</p>
           </div>
 
-          <!-- Formula Banner (Highlighted Yellow / Orange Formula Banner) -->
+          <!-- Tier 1 Rate (1-3 Deals) -->
+          <div>
+            <label class="block text-xs font-semibold text-sky-800 mb-1 flex items-center gap-1">
+              <span class="w-2 h-2 rounded-full bg-sky-400"></span>
+              Tier 1 (หลังที่ 1-3)
+            </label>
+            <div class="highlight-input-container flex items-center px-3 py-1.5 bg-sky-50/70 border-sky-300">
+              <input type="number" id="tier1Rate" value="7.5" step="0.1" min="0" max="100" class="highlight-input text-base text-center font-bold text-sky-900">
+              <span class="text-xs font-semibold text-sky-800 ml-1">%</span>
+            </div>
+            <p class="text-[10px] text-sky-600 mt-1">ของค่าคอมบริษัท (0.225% บ้าน)</p>
+          </div>
+
+          <!-- Tier 2 Rate (4-5 Deals) -->
+          <div>
+            <label class="block text-xs font-semibold text-purple-800 mb-1 flex items-center gap-1">
+              <span class="w-2 h-2 rounded-full bg-purple-400"></span>
+              Tier 2 (หลังที่ 4-5)
+            </label>
+            <div class="highlight-input-container flex items-center px-3 py-1.5 bg-purple-50/70 border-purple-300">
+              <input type="number" id="tier2Rate" value="10" step="0.1" min="0" max="100" class="highlight-input text-base text-center font-bold text-purple-900">
+              <span class="text-xs font-semibold text-purple-800 ml-1">%</span>
+            </div>
+            <p class="text-[10px] text-purple-600 mt-1">ของค่าคอมบริษัท (0.300% บ้าน)</p>
+          </div>
+
+          <!-- Tier 3 Rate (6+ Deals) -->
+          <div>
+            <label class="block text-xs font-semibold text-orange-800 mb-1 flex items-center gap-1">
+              <span class="w-2 h-2 rounded-full bg-orange-400"></span>
+              Tier 3 (หลังที่ 6 ขึ้นไป)
+            </label>
+            <div class="highlight-input-container flex items-center px-3 py-1.5 bg-orange-50/70 border-orange-300">
+              <input type="number" id="tier3Rate" value="15" step="0.1" min="0" max="100" class="highlight-input text-base text-center font-bold text-orange-900">
+              <span class="text-xs font-semibold text-orange-800 ml-1">%</span>
+            </div>
+            <p class="text-[10px] text-orange-600 mt-1">ของค่าคอมบริษัท (0.450% บ้าน)</p>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================================= -->
+    <!-- TAB 1: MONTHLY CUMULATIVE TIER CALCULATOR (NEW ADVANCED FEATURE) -->
+    <!-- ========================================================================= -->
+    <div id="tabContentTier" class="tab-content space-y-6">
+      
+      <!-- Tier Rules Visual Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        
+        <!-- Tier 1 Card -->
+        <div class="glass-card p-4 border-l-4 border-l-sky-400 bg-sky-50/40">
+          <div class="flex items-center justify-between">
+            <span class="badge-tier-1 text-xs font-bold px-2.5 py-1 rounded-lg">Tier 1: 1 - 3 รายการ</span>
+            <span id="tier1BadgePercent" class="text-sm font-extrabold text-sky-900">7.5%</span>
+          </div>
+          <p class="text-xs text-sky-900/80 mt-2 font-medium">ส่วนแบ่งพนักงาน = 7.5% ของค่าคอมบริษัท</p>
+          <p id="tier1EffectiveText" class="text-[11px] text-sky-700 mt-0.5">คิดเป็น 0.225% จากราคาขายบ้าน</p>
+        </div>
+
+        <!-- Tier 2 Card -->
+        <div class="glass-card p-4 border-l-4 border-l-purple-400 bg-purple-50/40">
+          <div class="flex items-center justify-between">
+            <span class="badge-tier-2 text-xs font-bold px-2.5 py-1 rounded-lg">Tier 2: 4 - 5 รายการ</span>
+            <span id="tier2BadgePercent" class="text-sm font-extrabold text-purple-900">10.0%</span>
+          </div>
+          <p class="text-xs text-purple-900/80 mt-2 font-medium">ส่วนแบ่งพนักงาน = 10% ของค่าคอมบริษัท</p>
+          <p id="tier2EffectiveText" class="text-[11px] text-purple-700 mt-0.5">คิดเป็น 0.300% จากราคาขายบ้าน</p>
+        </div>
+
+        <!-- Tier 3 Card -->
+        <div class="glass-card p-4 border-l-4 border-l-orange-400 bg-orange-50/40">
+          <div class="flex items-center justify-between">
+            <span class="badge-tier-3 text-xs font-bold px-2.5 py-1 rounded-lg">Tier 3: 6 รายการขึ้นไป</span>
+            <span id="tier3BadgePercent" class="text-sm font-extrabold text-orange-900">15.0%</span>
+          </div>
+          <p class="text-xs text-orange-900/80 mt-2 font-medium">ส่วนแบ่งพนักงาน = 15% ของค่าคอมบริษัท</p>
+          <p id="tier3EffectiveText" class="text-[11px] text-orange-700 mt-0.5">คิดเป็น 0.450% จากราคาขายบ้าน</p>
+        </div>
+
+      </div>
+
+      <!-- Main Layout: Left Deal Inputs / Right Cumulative Dashboard -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        
+        <!-- Left: Deals Management (7 Cols) -->
+        <div class="lg:col-span-7 space-y-5">
+          
+          <section class="glass-card p-5 sm:p-6 border-t-4 border-t-sky-400">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+              <div class="flex items-center gap-2">
+                <span class="w-8 h-8 rounded-lg bg-sky-100 flex items-center justify-center text-sky-600">
+                  <i data-lucide="list-plus" class="w-4 h-4"></i>
+                </span>
+                <div>
+                  <h2 class="text-lg font-bold text-slate-800">รายการบ้านที่ปิดได้ในเดือนนี้</h2>
+                  <p class="text-xs text-slate-500">กรอกราคาบ้านแต่ละหลัง ลำดับจะถูกจัด Tier อัตโนมัติ</p>
+                </div>
+              </div>
+
+              <!-- Quick List Actions -->
+              <div class="flex items-center gap-2 no-print">
+                <button id="sampleDataBtn" class="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 transition" title="ใส่ตัวอย่าง 6 หลัง">
+                  🎲 ใส่ตัวอย่าง (6 หลัง)
+                </button>
+                <button id="clearAllDealsBtn" class="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition" title="ล้างรายการทั้งหมด">
+                  🗑️ ล้างทั้งหมด
+                </button>
+              </div>
+            </div>
+
+            <!-- Quick Add Deal Bar -->
+            <div class="p-3.5 rounded-xl bg-slate-50/80 border border-slate-200/80 mb-5 no-print">
+              <label for="newDealPriceInput" class="block text-xs font-semibold text-slate-700 mb-1.5">
+                ➕ เพิ่มรายการบ้านหลังใหม่ (บาท):
+              </label>
+              <div class="flex gap-2">
+                <div class="highlight-input-container flex-1 flex items-center px-3 py-2">
+                  <input type="text" id="newDealPriceInput" placeholder="กรอกราคา เช่น 2,500,000" inputmode="numeric" class="highlight-input text-base font-bold placeholder-slate-400">
+                  <span class="text-xs font-semibold text-slate-600 ml-2">บาท</span>
+                </div>
+                <button id="addNewDealBtn" class="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl text-sm font-bold shadow-md shadow-purple-200 transition active:scale-95 flex items-center gap-1.5 shrink-0">
+                  <i data-lucide="plus" class="w-4 h-4"></i>
+                  <span>เพิ่มรายการ</span>
+                </button>
+              </div>
+
+              <!-- Preset Chips for Quick Add -->
+              <div class="flex flex-wrap items-center gap-1.5 mt-2">
+                <span class="text-[11px] text-slate-400 mr-1">ปุ่มลัด:</span>
+                <button type="button" class="quick-chip chip-quick-add" data-value="1500000">1.5 ล้าน</button>
+                <button type="button" class="quick-chip chip-quick-add" data-value="2000000">2 ล้าน</button>
+                <button type="button" class="quick-chip chip-quick-add" data-value="3000000">3 ล้าน</button>
+                <button type="button" class="quick-chip chip-quick-add" data-value="4500000">4.5 ล้าน</button>
+                <button type="button" class="quick-chip chip-quick-add" data-value="6000000">6 ล้าน</button>
+                <button type="button" class="quick-chip chip-quick-add" data-value="10000000">10 ล้าน</button>
+              </div>
+            </div>
+
+            <!-- Dynamic Deals Table Container -->
+            <div id="dealsContainer" class="space-y-3">
+              <!-- Dynamically populated via app.js -->
+            </div>
+
+            <!-- Empty State -->
+            <div id="emptyDealsState" class="hidden py-8 text-center">
+              <div class="w-12 h-12 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-2">
+                <i data-lucide="inbox" class="w-6 h-6"></i>
+              </div>
+              <p class="text-sm font-semibold text-slate-600">ยังไม่มีรายการบ้านที่กรอก</p>
+              <p class="text-xs text-slate-400 mt-0.5">เพิ่มรายการบ้านด้านบน หรือกด "ใส่ตัวอย่าง (6 หลัง)" เพื่อดูการคำนวณ</p>
+            </div>
+
+          </section>
+
+        </div>
+
+        <!-- Right: Cumulative Summary & Dashboard (5 Cols) -->
+        <div class="lg:col-span-5 space-y-5">
+          
+          <!-- Summary Dashboard Card -->
+          <section class="glass-card p-5 sm:p-6 border-t-4 border-t-emerald-400">
+            <div class="flex items-center justify-between mb-4">
+              <div class="flex items-center gap-2">
+                <span class="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-600">
+                  <i data-lucide="layers" class="w-4 h-4"></i>
+                </span>
+                <h2 class="text-lg font-bold text-slate-800">สรุปยอดรวมสะสมรายเดือน</h2>
+              </div>
+              <span class="badge-pastel-mint text-xs font-bold px-2.5 py-0.5 rounded-full">Monthly Total</span>
+            </div>
+
+            <!-- Total KPIs -->
+            <div class="space-y-3">
+              
+              <!-- Total Sales Volume -->
+              <div class="p-4 rounded-xl bg-gradient-to-br from-indigo-50/80 to-purple-50/80 border border-indigo-100">
+                <div class="flex items-center justify-between text-xs text-indigo-900 font-semibold mb-1">
+                  <span class="flex items-center gap-1.5">
+                    <i data-lucide="building" class="w-4 h-4 text-indigo-600"></i>
+                    ยอดขายบ้านสะสมรวม (<span id="totalDealsCountText">0</span> รายการ)
+                  </span>
+                </div>
+                <div class="text-2xl font-extrabold text-indigo-950" id="totalHouseSalesText">0.00 บาท</div>
+              </div>
+
+              <!-- Total Salesperson Commission -->
+              <div class="result-box-peach p-4 rounded-xl flex items-center justify-between">
+                <div>
+                  <span class="text-xs font-semibold text-orange-900 block">👤 ค่าคอมพนักงานรวมสะสม</span>
+                  <p class="text-[11px] text-orange-700">ตามเกณฑ์ Tier แต่ละรายการ</p>
+                </div>
+                <div class="text-right">
+                  <span id="totalSalesCommText" class="text-xl sm:text-2xl font-black text-orange-950">0.00 บาท</span>
+                </div>
+              </div>
+
+              <!-- Total Company Commission -->
+              <div class="result-box-blue p-4 rounded-xl flex items-center justify-between">
+                <div>
+                  <span class="text-xs font-semibold text-sky-900 block">🏢 ค่าคอมมิชชั่นบริษัทรวม</span>
+                  <p class="text-[11px] text-sky-700">คำนวณจาก 3% ของยอดขาย</p>
+                </div>
+                <div class="text-right">
+                  <span id="totalCompanyCommText" class="text-lg sm:text-xl font-bold text-sky-950">0.00 บาท</span>
+                </div>
+              </div>
+
+              <!-- Total Company Net Retention -->
+              <div class="result-box-mint p-4 rounded-xl flex items-center justify-between">
+                <div>
+                  <span class="text-xs font-semibold text-emerald-900 block">💼 บริษัทได้รับสุทธิรวม</span>
+                  <p class="text-[11px] text-emerald-700">หลังจ่ายค่าคอมพนักงานแล้ว</p>
+                </div>
+                <div class="text-right">
+                  <span id="totalCompanyNetText" class="text-lg sm:text-xl font-bold text-emerald-950">0.00 บาท</span>
+                </div>
+              </div>
+
+            </div>
+
+            <!-- Tier Breakdown Progress List -->
+            <div class="mt-5 pt-4 border-t border-slate-100 space-y-2.5">
+              <span class="text-xs font-bold text-slate-700 block">สรุปการแจกแจงตามแต่ละ Tier:</span>
+              
+              <div class="flex items-center justify-between text-xs p-2 rounded-lg bg-sky-50/60">
+                <span class="text-sky-900 font-medium">Tier 1 (1-3 หลัง @ <span id="summaryTier1RateText">7.5%</span>):</span>
+                <span class="font-bold text-sky-950" id="summaryTier1AmtText">0 หลัง (0.00 บ.)</span>
+              </div>
+
+              <div class="flex items-center justify-between text-xs p-2 rounded-lg bg-purple-50/60">
+                <span class="text-purple-900 font-medium">Tier 2 (4-5 หลัง @ <span id="summaryTier2RateText">10.0%</span>):</span>
+                <span class="font-bold text-purple-950" id="summaryTier2AmtText">0 หลัง (0.00 บ.)</span>
+              </div>
+
+              <div class="flex items-center justify-between text-xs p-2 rounded-lg bg-orange-50/60">
+                <span class="text-orange-900 font-medium">Tier 3 (6+ หลัง @ <span id="summaryTier3RateText">15.0%</span>):</span>
+                <span class="font-bold text-orange-950" id="summaryTier3AmtText">0 หลัง (0.00 บ.)</span>
+              </div>
+            </div>
+
+            <!-- Tier Chart Canvas -->
+            <div class="relative w-full h-52 flex items-center justify-center mt-4">
+              <canvas id="tierSummaryPieChart"></canvas>
+            </div>
+
+          </section>
+
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- ========================================================================= -->
+    <!-- TAB 2: SINGLE DEAL & REVERSE CALCULATOR (ORIGINAL MODE) -->
+    <!-- ========================================================================= -->
+    <div id="tabContentSingle" class="tab-content hidden">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+        <!-- LEFT COLUMN: Settings & Inputs (7 Cols) -->
+        <div class="lg:col-span-7 space-y-6">
+
+          <!-- Formula Banner -->
           <div class="p-3.5 rounded-xl bg-amber-50 border border-amber-200/80 flex items-start gap-3">
-            <div class="p-1 rounded-md bg-amber-200 text-amber-900 mt-0.5">
+            <div class="p-1 rounded-md bg-amber-200 text-amber-900 mt-0.5 shrink-0">
               <i data-lucide="info" class="w-4 h-4"></i>
             </div>
             <div>
@@ -121,248 +402,239 @@
               </p>
             </div>
           </div>
-        </section>
 
-        <!-- 2. แสดงผล (Forward Calc: House Price -> Commission) -->
-        <section class="glass-card p-6 border-t-4 border-t-sky-300">
-          <div class="flex items-center gap-2 mb-4">
-            <span class="w-8 h-8 rounded-lg bg-sky-100 flex items-center justify-center text-sky-600">
-              <i data-lucide="home" class="w-4 h-4"></i>
-            </span>
-            <h2 class="text-lg font-bold text-slate-800">คำนวณจากราคาบ้าน</h2>
-          </div>
-
-          <!-- House Price Input -->
-          <div class="mb-5">
-            <div class="flex items-center justify-between mb-1.5">
-              <label for="housePriceInput" class="text-xs font-semibold text-slate-600">
-                🏡 ราคาบ้าน (บาท) <span class="text-pink-500 font-bold">*</span>
-              </label>
-              <button id="clearHousePriceBtn" class="text-[11px] text-slate-400 hover:text-slate-600 no-print">ล้างค่า</button>
-            </div>
-            
-            <div class="highlight-input-container flex items-center px-4 py-3">
-              <input type="text" id="housePriceInput" placeholder="กรอกราคาบ้าน เช่น 1,000,000" inputmode="numeric" class="highlight-input text-xl sm:text-2xl font-bold tracking-wide placeholder-slate-400/80">
-              <span class="text-sm font-semibold text-slate-700 ml-2">บาท</span>
-            </div>
-
-            <!-- Quick Chips for House Price -->
-            <div class="flex flex-wrap items-center gap-1.5 mt-2.5 no-print">
-              <span class="text-[11px] text-slate-400 mr-1">ปุ่มลัด:</span>
-              <button type="button" class="quick-chip chip-house-price" data-value="1000000">1 ล้าน</button>
-              <button type="button" class="quick-chip chip-house-price" data-value="2000000">2 ล้าน</button>
-              <button type="button" class="quick-chip chip-house-price" data-value="3000000">3 ล้าน</button>
-              <button type="button" class="quick-chip chip-house-price" data-value="5000000">5 ล้าน</button>
-              <button type="button" class="quick-chip chip-house-price" data-value="10000000">10 ล้าน</button>
-            </div>
-          </div>
-
-          <!-- Results Summary Grid -->
-          <div id="forwardCalcSummary" class="space-y-3">
-            
-            <!-- Result: Company Commission -->
-            <div class="result-box-blue p-4 rounded-xl flex items-center justify-between transition-all">
-              <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-xl bg-sky-200/80 text-sky-800 flex items-center justify-center">
-                  <i data-lucide="building-2" class="w-5 h-5"></i>
-                </div>
-                <div>
-                  <span class="text-xs font-semibold text-sky-900">บริษัทได้ค่าคอม</span>
-                  <p class="text-[11px] text-sky-700">ค่าคอมมิชชั่นรวมทั้งหมด</p>
-                </div>
-              </div>
-              <div class="text-right">
-                <span id="resultCompanyComm" class="text-lg sm:text-xl font-bold text-sky-950">- บาท</span>
-              </div>
-            </div>
-
-            <!-- Result: Salesperson Commission -->
-            <div class="result-box-peach p-4 rounded-xl flex items-center justify-between transition-all">
-              <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-xl bg-orange-200/80 text-orange-800 flex items-center justify-center">
-                  <i data-lucide="user-check" class="w-5 h-5"></i>
-                </div>
-                <div>
-                  <span class="text-xs font-semibold text-orange-900">พนักงานขายได้</span>
-                  <p class="text-[11px] text-orange-700">ส่วนแบ่งพนักงานขาย</p>
-                </div>
-              </div>
-              <div class="text-right">
-                <span id="resultSalesComm" class="text-lg sm:text-xl font-bold text-orange-950">- บาท</span>
-              </div>
-            </div>
-
-            <!-- Result: Company Net Retention -->
-            <div class="result-box-mint p-4 rounded-xl flex items-center justify-between transition-all">
-              <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-xl bg-emerald-200/80 text-emerald-800 flex items-center justify-center">
-                  <i data-lucide="wallet" class="w-5 h-5"></i>
-                </div>
-                <div>
-                  <span class="text-xs font-semibold text-emerald-900">บริษัทได้รับสุทธิ</span>
-                  <p class="text-[11px] text-emerald-700">หลังหักส่วนแบ่งพนักงานแล้ว</p>
-                </div>
-              </div>
-              <div class="text-right">
-                <span id="resultCompanyNet" class="text-lg sm:text-xl font-bold text-emerald-950">- บาท</span>
-              </div>
-            </div>
-
-          </div>
-        </section>
-
-        <!-- 3. ช่องแสดง การคำนวณกลับ (Reverse Calculation: Target Comm -> House Price) -->
-        <section class="glass-card p-6 border-t-4 border-t-pink-300">
-          <div class="flex items-center gap-2 mb-4">
-            <span class="w-8 h-8 rounded-lg bg-pink-100 flex items-center justify-center text-pink-600">
-              <i data-lucide="target" class="w-4 h-4"></i>
-            </span>
-            <h2 class="text-lg font-bold text-slate-800">ช่องแสดง การคำนวณกลับ</h2>
-          </div>
-
-          <!-- Target Commission Input -->
-          <div class="mb-5">
-            <div class="flex items-center justify-between mb-1.5">
-              <label for="targetCommInput" class="text-xs font-semibold text-slate-600">
-                🎯 ถ้า พนักงานขายอยากได้ค่าคอม (บาท)
-              </label>
-              <button id="clearTargetCommBtn" class="text-[11px] text-slate-400 hover:text-slate-600 no-print">ล้างค่า</button>
-            </div>
-
-            <div class="highlight-input-container flex items-center px-4 py-3">
-              <input type="text" id="targetCommInput" placeholder="กรอกเป้าค่าคอม เช่น 10,000" inputmode="numeric" class="highlight-input text-xl sm:text-2xl font-bold tracking-wide placeholder-slate-400/80">
-              <span class="text-sm font-semibold text-slate-700 ml-2">บาท</span>
-            </div>
-
-            <!-- Quick Chips for Target Commission -->
-            <div class="flex flex-wrap items-center gap-1.5 mt-2.5 no-print">
-              <span class="text-[11px] text-slate-400 mr-1">ปุ่มลัด:</span>
-              <button type="button" class="quick-chip chip-target-comm" data-value="5000">5,000</button>
-              <button type="button" class="quick-chip chip-target-comm" data-value="10000">10,000</button>
-              <button type="button" class="quick-chip chip-target-comm" data-value="20000">20,000</button>
-              <button type="button" class="quick-chip chip-target-comm" data-value="50000">50,000</button>
-              <button type="button" class="quick-chip chip-target-comm" data-value="100000">100,000</button>
-            </div>
-          </div>
-
-          <!-- Reverse Results Grid -->
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-            
-            <!-- Result: Required House Price -->
-            <div class="result-box-purple p-4 rounded-xl sm:col-span-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-              <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-xl bg-purple-200/80 text-purple-800 flex items-center justify-center shrink-0">
-                  <i data-lucide="tag" class="w-5 h-5"></i>
-                </div>
-                <div>
-                  <span class="text-xs font-semibold text-purple-900">ต้องขายบ้านราคา</span>
-                  <p class="text-[11px] text-purple-700">ยอดขายบ้านที่ต้องทำได้</p>
-                </div>
-              </div>
-              <div class="sm:text-right w-full sm:w-auto">
-                <span id="resultReqHousePrice" class="text-xl font-extrabold text-purple-950 block sm:inline">- บาท</span>
-              </div>
-            </div>
-
-            <!-- Result: And Company Receives -->
-            <div class="result-box-blue p-4 rounded-xl flex items-center justify-between">
-              <div>
-                <span class="text-xs font-semibold text-sky-900 block">และบริษัทได้ค่าคอม</span>
-                <p class="text-[10px] text-sky-700">ยอดค่าคอมรวม</p>
-              </div>
-              <div class="text-right">
-                <span id="resultReqCompanyComm" class="text-base font-bold text-sky-950">- บาท</span>
-              </div>
-            </div>
-
-            <!-- Result: And Company Net -->
-            <div class="result-box-mint p-4 rounded-xl flex items-center justify-between">
-              <div>
-                <span class="text-xs font-semibold text-emerald-900 block">บริษัทได้สุทธิ</span>
-                <p class="text-[10px] text-emerald-700">หลังจ่ายพนักงาน</p>
-              </div>
-              <div class="text-right">
-                <span id="resultReqCompanyNet" class="text-base font-bold text-emerald-950">- บาท</span>
-              </div>
-            </div>
-
-          </div>
-        </section>
-
-      </div>
-
-      <!-- RIGHT COLUMN: Pastel Chart & Visual Breakdown (5 Cols) -->
-      <div class="lg:col-span-5 space-y-6">
-
-        <!-- Visual Proportion Card -->
-        <section class="glass-card p-6 border-t-4 border-t-emerald-300">
-          <div class="flex items-center justify-between mb-4">
-            <div class="flex items-center gap-2">
-              <span class="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-600">
-                <i data-lucide="pie-chart" class="w-4 h-4"></i>
+          <!-- Forward Calc: House Price -> Commission -->
+          <section class="glass-card p-6 border-t-4 border-t-sky-300">
+            <div class="flex items-center gap-2 mb-4">
+              <span class="w-8 h-8 rounded-lg bg-sky-100 flex items-center justify-center text-sky-600">
+                <i data-lucide="home" class="w-4 h-4"></i>
               </span>
-              <h2 class="text-lg font-bold text-slate-800">สัดส่วนการแบ่งค่าคอม</h2>
-            </div>
-            <span class="badge-pastel-mint text-xs font-medium px-2.5 py-0.5 rounded-full">Chart</span>
-          </div>
-
-          <!-- Chart Canvas Container -->
-          <div class="relative w-full h-64 sm:h-72 flex items-center justify-center my-2">
-            <canvas id="commissionPieChart"></canvas>
-          </div>
-
-          <!-- Proportion Badges / Legend Details -->
-          <div class="grid grid-cols-2 gap-3 mt-4 pt-4 border-t border-slate-100">
-            <div class="p-3 rounded-xl bg-sky-50/70 border border-sky-100 text-center">
-              <span class="text-xs text-sky-800 font-medium block">บริษัทได้ค่าคอมสุทธิ</span>
-              <span id="chartCompanyPercentText" class="text-xl font-bold text-sky-900">93%</span>
-              <span class="text-[10px] text-sky-600 block mt-0.5">(ของก้อนค่าคอม)</span>
+              <h2 class="text-lg font-bold text-slate-800">คำนวณจากราคาบ้าน (รายหลัง)</h2>
             </div>
 
-            <div class="p-3 rounded-xl bg-orange-50/70 border border-orange-100 text-center">
-              <span class="text-xs text-orange-800 font-medium block">พนักงานขายได้</span>
-              <span id="chartSalesPercentText" class="text-xl font-bold text-orange-900">7%</span>
-              <span class="text-[10px] text-orange-600 block mt-0.5">(ของก้อนค่าคอม)</span>
+            <!-- House Price Input -->
+            <div class="mb-5">
+              <div class="flex items-center justify-between mb-1.5">
+                <label for="housePriceInput" class="text-xs font-semibold text-slate-600">
+                  🏡 ราคาบ้าน (บาท) <span class="text-pink-500 font-bold">*</span>
+                </label>
+                <button id="clearHousePriceBtn" class="text-[11px] text-slate-400 hover:text-slate-600 no-print">ล้างค่า</button>
+              </div>
+              
+              <div class="highlight-input-container flex items-center px-4 py-3">
+                <input type="text" id="housePriceInput" placeholder="กรอกราคาบ้าน เช่น 1,000,000" inputmode="numeric" class="highlight-input text-xl sm:text-2xl font-bold tracking-wide placeholder-slate-400/80">
+                <span class="text-sm font-semibold text-slate-700 ml-2">บาท</span>
+              </div>
+
+              <!-- Quick Chips for House Price -->
+              <div class="flex flex-wrap items-center gap-1.5 mt-2.5 no-print">
+                <span class="text-[11px] text-slate-400 mr-1">ปุ่มลัด:</span>
+                <button type="button" class="quick-chip chip-house-price" data-value="1000000">1 ล้าน</button>
+                <button type="button" class="quick-chip chip-house-price" data-value="2000000">2 ล้าน</button>
+                <button type="button" class="quick-chip chip-house-price" data-value="3000000">3 ล้าน</button>
+                <button type="button" class="quick-chip chip-house-price" data-value="5000000">5 ล้าน</button>
+                <button type="button" class="quick-chip chip-house-price" data-value="10000000">10 ล้าน</button>
+              </div>
             </div>
-          </div>
-        </section>
 
-        <!-- Guide & Explanation Card -->
-        <section class="glass-card p-6 bg-white/75">
-          <div class="flex items-center gap-2 mb-3">
-            <span class="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center text-amber-600">
-              <i data-lucide="book-open" class="w-4 h-4"></i>
-            </span>
-            <h3 class="text-base font-bold text-slate-800">วิธีคำนวณและข้อแนะนำ</h3>
-          </div>
+            <!-- Results Summary Grid -->
+            <div id="forwardCalcSummary" class="space-y-3">
+              
+              <!-- Result: Company Commission -->
+              <div class="result-box-blue p-4 rounded-xl flex items-center justify-between transition-all">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-xl bg-sky-200/80 text-sky-800 flex items-center justify-center">
+                    <i data-lucide="building-2" class="w-5 h-5"></i>
+                  </div>
+                  <div>
+                    <span class="text-xs font-semibold text-sky-900">บริษัทได้ค่าคอม</span>
+                    <p class="text-[11px] text-sky-700">ค่าคอมมิชชั่นรวมทั้งหมด</p>
+                  </div>
+                </div>
+                <div class="text-right">
+                  <span id="resultCompanyComm" class="text-lg sm:text-xl font-bold text-sky-950">- บาท</span>
+                </div>
+              </div>
 
-          <ul class="text-xs text-slate-600 space-y-2.5 leading-relaxed">
-            <li class="flex items-start gap-2">
-              <span class="text-amber-500 font-bold">•</span>
-              <span><strong>บล็อกสีเหลือง:</strong> คือจุดที่สามารถคลิกเพื่อแก้ไขตัวเลขได้ตามต้องการ</span>
-            </li>
-            <li class="flex items-start gap-2">
-              <span class="text-amber-500 font-bold">•</span>
-              <span><strong>สูตรคำนวณ:</strong> ค่าคอมพนักงาน = ราคาบ้าน × %บริษัท × %พนักงาน</span>
-            </li>
-            <li class="flex items-start gap-2">
-              <span class="text-amber-500 font-bold">•</span>
-              <span><strong>บันทึกค่าอัตโนมัติ:</strong> การปรับ % ในหน้าตั้งค่าจะถูกบันทึกไว้ในเครื่อง เปิดมาครั้งต่อไปไม่ต้องกรอกใหม่</span>
-            </li>
-            <li class="flex items-start gap-2">
-              <span class="text-amber-500 font-bold">•</span>
-              <span><strong>แชร์ออนไลน์ฟรี:</strong> รองรับการนำขึ้น <strong>GitHub Pages</strong> ได้ทันทีโดยไม่ต้องมีเซิร์ฟเวอร์</span>
-            </li>
-          </ul>
-        </section>
+              <!-- Result: Salesperson Commission -->
+              <div class="result-box-peach p-4 rounded-xl flex items-center justify-between transition-all">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-xl bg-orange-200/80 text-orange-800 flex items-center justify-center">
+                    <i data-lucide="user-check" class="w-5 h-5"></i>
+                  </div>
+                  <div>
+                    <span class="text-xs font-semibold text-orange-900">พนักงานขายได้</span>
+                    <p class="text-[11px] text-orange-700">ส่วนแบ่งพนักงานขาย</p>
+                  </div>
+                </div>
+                <div class="text-right">
+                  <span id="resultSalesComm" class="text-lg sm:text-xl font-bold text-orange-950">- บาท</span>
+                </div>
+              </div>
+
+              <!-- Result: Company Net Retention -->
+              <div class="result-box-mint p-4 rounded-xl flex items-center justify-between transition-all">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-xl bg-emerald-200/80 text-emerald-800 flex items-center justify-center">
+                    <i data-lucide="wallet" class="w-5 h-5"></i>
+                  </div>
+                  <div>
+                    <span class="text-xs font-semibold text-emerald-900">บริษัทได้รับสุทธิ</span>
+                    <p class="text-[11px] text-emerald-700">หลังหักส่วนแบ่งพนักงานแล้ว</p>
+                  </div>
+                </div>
+                <div class="text-right">
+                  <span id="resultCompanyNet" class="text-lg sm:text-xl font-bold text-emerald-950">- บาท</span>
+                </div>
+              </div>
+
+            </div>
+          </section>
+
+          <!-- Reverse Calculation: Target Comm -> House Price -->
+          <section class="glass-card p-6 border-t-4 border-t-pink-300">
+            <div class="flex items-center gap-2 mb-4">
+              <span class="w-8 h-8 rounded-lg bg-pink-100 flex items-center justify-center text-pink-600">
+                <i data-lucide="target" class="w-4 h-4"></i>
+              </span>
+              <h2 class="text-lg font-bold text-slate-800">ช่องแสดง การคำนวณกลับ</h2>
+            </div>
+
+            <!-- Target Commission Input -->
+            <div class="mb-5">
+              <div class="flex items-center justify-between mb-1.5">
+                <label for="targetCommInput" class="text-xs font-semibold text-slate-600">
+                  🎯 ถ้า พนักงานขายอยากได้ค่าคอม (บาท)
+                </label>
+                <button id="clearTargetCommBtn" class="text-[11px] text-slate-400 hover:text-slate-600 no-print">ล้างค่า</button>
+              </div>
+
+              <div class="highlight-input-container flex items-center px-4 py-3">
+                <input type="text" id="targetCommInput" placeholder="กรอกเป้าค่าคอม เช่น 10,000" inputmode="numeric" class="highlight-input text-xl sm:text-2xl font-bold tracking-wide placeholder-slate-400/80">
+                <span class="text-sm font-semibold text-slate-700 ml-2">บาท</span>
+              </div>
+
+              <!-- Quick Chips for Target Commission -->
+              <div class="flex flex-wrap items-center gap-1.5 mt-2.5 no-print">
+                <span class="text-[11px] text-slate-400 mr-1">ปุ่มลัด:</span>
+                <button type="button" class="quick-chip chip-target-comm" data-value="5000">5,000</button>
+                <button type="button" class="quick-chip chip-target-comm" data-value="10000">10,000</button>
+                <button type="button" class="quick-chip chip-target-comm" data-value="20000">20,000</button>
+                <button type="button" class="quick-chip chip-target-comm" data-value="50000">50,000</button>
+                <button type="button" class="quick-chip chip-target-comm" data-value="100000">100,000</button>
+              </div>
+            </div>
+
+            <!-- Reverse Results Grid -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <div class="result-box-purple p-4 rounded-xl sm:col-span-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-xl bg-purple-200/80 text-purple-800 flex items-center justify-center shrink-0">
+                    <i data-lucide="tag" class="w-5 h-5"></i>
+                  </div>
+                  <div>
+                    <span class="text-xs font-semibold text-purple-900">ต้องขายบ้านราคา</span>
+                    <p class="text-[11px] text-purple-700">ยอดขายบ้านที่ต้องทำได้</p>
+                  </div>
+                </div>
+                <div class="sm:text-right w-full sm:w-auto">
+                  <span id="resultReqHousePrice" class="text-xl font-extrabold text-purple-950 block sm:inline">- บาท</span>
+                </div>
+              </div>
+
+              <div class="result-box-blue p-4 rounded-xl flex items-center justify-between">
+                <div>
+                  <span class="text-xs font-semibold text-sky-900 block">และบริษัทได้ค่าคอม</span>
+                  <p class="text-[10px] text-sky-700">ยอดค่าคอมรวม</p>
+                </div>
+                <div class="text-right">
+                  <span id="resultReqCompanyComm" class="text-base font-bold text-sky-950">- บาท</span>
+                </div>
+              </div>
+
+              <div class="result-box-mint p-4 rounded-xl flex items-center justify-between">
+                <div>
+                  <span class="text-xs font-semibold text-emerald-900 block">บริษัทได้สุทธิ</span>
+                  <p class="text-[10px] text-emerald-700">หลังจ่ายพนักงาน</p>
+                </div>
+                <div class="text-right">
+                  <span id="resultReqCompanyNet" class="text-base font-bold text-emerald-950">- บาท</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+        </div>
+
+        <!-- RIGHT COLUMN: Pastel Chart & Visual Breakdown (5 Cols) -->
+        <div class="lg:col-span-5 space-y-6">
+
+          <!-- Visual Proportion Card -->
+          <section class="glass-card p-6 border-t-4 border-t-emerald-300">
+            <div class="flex items-center justify-between mb-4">
+              <div class="flex items-center gap-2">
+                <span class="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-600">
+                  <i data-lucide="pie-chart" class="w-4 h-4"></i>
+                </span>
+                <h2 class="text-lg font-bold text-slate-800">สัดส่วนการแบ่งค่าคอม</h2>
+              </div>
+              <span class="badge-pastel-mint text-xs font-medium px-2.5 py-0.5 rounded-full">Single Chart</span>
+            </div>
+
+            <!-- Chart Canvas Container -->
+            <div class="relative w-full h-64 sm:h-72 flex items-center justify-center my-2">
+              <canvas id="commissionPieChart"></canvas>
+            </div>
+
+            <!-- Proportion Badges / Legend Details -->
+            <div class="grid grid-cols-2 gap-3 mt-4 pt-4 border-t border-slate-100">
+              <div class="p-3 rounded-xl bg-sky-50/70 border border-sky-100 text-center">
+                <span class="text-xs text-sky-800 font-medium block">บริษัทได้ค่าคอมสุทธิ</span>
+                <span id="chartCompanyPercentText" class="text-xl font-bold text-sky-900">93%</span>
+                <span class="text-[10px] text-sky-600 block mt-0.5">(ของก้อนค่าคอม)</span>
+              </div>
+
+              <div class="p-3 rounded-xl bg-orange-50/70 border border-orange-100 text-center">
+                <span class="text-xs text-orange-800 font-medium block">พนักงานขายได้</span>
+                <span id="chartSalesPercentText" class="text-xl font-bold text-orange-900">7%</span>
+                <span class="text-[10px] text-orange-600 block mt-0.5">(ของก้อนค่าคอม)</span>
+              </div>
+            </div>
+          </section>
+
+          <!-- Guide & Explanation Card -->
+          <section class="glass-card p-6 bg-white/75">
+            <div class="flex items-center gap-2 mb-3">
+              <span class="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center text-amber-600">
+                <i data-lucide="book-open" class="w-4 h-4"></i>
+              </span>
+              <h3 class="text-base font-bold text-slate-800">วิธีคำนวณและข้อแนะนำ</h3>
+            </div>
+
+            <ul class="text-xs text-slate-600 space-y-2.5 leading-relaxed">
+              <li class="flex items-start gap-2">
+                <span class="text-amber-500 font-bold">•</span>
+                <span><strong>บล็อกสีเหลือง:</strong> คือจุดที่สามารถคลิกเพื่อแก้ไขตัวเลขได้ตามต้องการ</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-amber-500 font-bold">•</span>
+                <span><strong>สูตรคำนวณ:</strong> ค่าคอมพนักงาน = ราคาบ้าน × %บริษัท × %พนักงาน</span>
+              </li>
+              <li class="flex items-start gap-2">
+                <span class="text-amber-500 font-bold">•</span>
+                <span><strong>บันทึกค่าอัตโนมัติ:</strong> การปรับ % ในหน้าตั้งค่าจะถูกบันทึกไว้ในเครื่องเสมอ</span>
+              </li>
+            </ul>
+          </section>
+
+        </div>
 
       </div>
-
-    </main>
+    </div>
 
     <!-- Footer -->
     <footer class="mt-8 text-center text-xs text-slate-400 py-4">
-      <p>WebApp คำนวณค่าคอมมิชชั่นอสังหาริมทรัพย์ • Pastel Edition</p>
+      <p>WebApp คำนวณค่าคอมมิชชั่นอสังหาริมทรัพย์ • Pastel Edition v2.0</p>
     </footer>
 
   </div>

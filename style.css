@@ -54,6 +54,31 @@ body {
   border-color: rgba(255, 255, 255, 0.95);
 }
 
+/* Tab Navigation Buttons */
+.tab-btn {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tab-btn.active {
+  background: #ffffff;
+  color: #4f46e5;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15);
+  border: 1.5px solid rgba(199, 210, 254, 0.8);
+}
+
+.tab-btn:not(.active) {
+  color: #64748b;
+  background: transparent;
+}
+
+.tab-btn:not(.active):hover {
+  color: #334155;
+  background: rgba(255, 255, 255, 0.6);
+}
+
 /* Highlighted Input Style (Excel Yellow Highlight) */
 .highlight-input-container {
   background-color: var(--pastel-yellow-highlight);
@@ -90,7 +115,7 @@ body {
   outline: none;
 }
 
-/* Pastel Badge & Tags */
+/* Pastel Badges & Tags */
 .badge-pastel-purple {
   background: var(--pastel-purple-light);
   color: #7e22ce;
@@ -113,6 +138,25 @@ body {
   background: var(--pastel-mint-light);
   color: #047857;
   border: 1px solid rgba(52, 211, 153, 0.3);
+}
+
+/* Tier Badges */
+.badge-tier-1 {
+  background: #e0f2fe;
+  color: #0369a1;
+  border: 1.5px solid #bae6fd;
+}
+
+.badge-tier-2 {
+  background: #f3e8ff;
+  color: #7e22ce;
+  border: 1.5px solid #e9d5ff;
+}
+
+.badge-tier-3 {
+  background: #ffedd5;
+  color: #c2410c;
+  border: 1.5px solid #fed7aa;
 }
 
 /* Result Box Glow */
@@ -138,7 +182,7 @@ body {
 
 /* Quick Chip Buttons */
 .quick-chip {
-  background: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.85);
   border: 1px solid #e2e8f0;
   color: #475569;
   border-radius: 9999px;
@@ -160,13 +204,24 @@ body {
   transform: translateY(0);
 }
 
+/* Deal Item Row */
+.deal-row {
+  transition: all 0.25s ease;
+  border-radius: 1rem;
+}
+
+.deal-row:hover {
+  background-color: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+}
+
 /* Toast Notification */
 .toast-notification {
   position: fixed;
   bottom: 24px;
   right: 24px;
   z-index: 999;
-  background: rgba(15, 23, 42, 0.9);
+  background: rgba(15, 23, 42, 0.92);
   color: #ffffff;
   padding: 12px 20px;
   border-radius: 12px;
@@ -208,5 +263,9 @@ body {
     background: #fef08a !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+  }
+
+  .tab-content {
+    display: block !important;
   }
 }
