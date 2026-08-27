@@ -1,566 +1,802 @@
-// Commission Calculator Application Script (v2.0 - Tiered & Cumulative)
-document.addEventListener('DOMContentLoaded', () => {
-  // --- DOM Elements - Tabs ---
+/**
+ * Real Estate Commission Calculator WebApp (v2.0)
+ * Robust, Reactive, and Defensive Implementation
+ */
+
+// Application State
+const DEFAULTS = {
+  companyRate: 3.0,
+  salesRate: 7.0,
+  tier1Rate: 7.5,
+  tier2Rate: 10.0,
+  tier3Rate: 15.0
+};
+
+let activeTab = 'tier'; // 'tier' | 'single'
+let deals = []; // [{ id: string, price: number }]
+let singleChart = null;
+let tierSummaryChart = null;
+
+// Initialize on DOM Ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initApp);
+} else {
+  initApp();
+}
+
+function initApp() {
+  try {
+    loadSettingsFromStorage();
+    loadDealsFromStorage();
+    loadActiveTabFromStorage();
+
+    setupGlobalEventListeners();
+    setupTabNavigation();
+    setupSettingsToggle();
+
+    renderDeals();
+    calculateAll();
+    
+    // Safely initialize charts after DOM is fully painted
+    setTimeout(() => {
+      initChartsSafely();
+      calculateAll();
+    }, 50);
+
+    // Refresh icons
+    if (window.lucide) {
+      window.lucide.createIcons();
+    }
+  } catch (err) {
+    console.error('Error during initApp:', err);
+  }
+}
+
+// --- Number Formatting Helpers ---
+function formatNumber(num) {
+  if (num === null || num === undefined || num === '' || isNaN(num)) return '';
+  const n = Number(num);
+  return n.toLocaleString('en-US');
+}
+
+function parseNumber(str) {
+  if (!str) return 0;
+  const clean = String(str).replace(/,/g, '').replace(/[^0-9.]/g, '');
+  const parsed = parseFloat(clean);
+  return isNaN(parsed) ? 0 : parsed;
+}
+
+function formatCurrency(num) {
+  if (num === null || num === undefined || isNaN(num)) return '0.00';
+  return Number(num).toLocaleString('th-TH', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+}
+
+function formatInputFieldWithCommas(input) {
+  if (!input) return;
+  const cursorPosition = input.selectionStart;
+  const originalLength = input.value.length;
+  
+  const rawValue = input.value.replace(/[^0-9.]/g, '');
+  if (!rawValue) {
+    input.value = '';
+    return;
+  }
+  const parts = rawValue.split('.');
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  
+  if (parts.length > 2) {
+    input.value = parts[0] + '.' + parts.slice(1).join('');
+  } else {
+    input.value = parts.join('.');
+  }
+}
+
+// --- Settings Management ---
+function getSettings() {
+  const companyInput = document.getElementById('companyRate');
+  const salesInput = document.getElementById('salesRate');
+  const tier1Input = document.getElementById('tier1Rate');
+  const tier2Input = document.getElementById('tier2Rate');
+  const tier3Input = document.getElementById('tier3Rate');
+
+  return {
+    companyRate: companyInput ? (parseFloat(companyInput.value) || 0) : DEFAULTS.companyRate,
+    salesRate: salesInput ? (parseFloat(salesInput.value) || 0) : DEFAULTS.salesRate,
+    tier1Rate: tier1Input ? (parseFloat(tier1Input.value) || 0) : DEFAULTS.tier1Rate,
+    tier2Input: tier2Input ? (parseFloat(tier2Input.value) || 0) : DEFAULTS.tier2Rate,
+    tier3Rate: tier3Input ? (parseFloat(tier3Input.value) || 0) : DEFAULTS.tier3Rate,
+    tier2Rate: tier2Input ? (parseFloat(tier2Input.value) || 0) : DEFAULTS.tier2Rate
+  };
+}
+
+function saveSettingsToStorage() {
+  try {
+    const s = getSettings();
+    localStorage.setItem('comm_companyRate', s.companyRate);
+    localStorage.setItem('comm_salesRate', s.salesRate);
+    localStorage.setItem('comm_tier1Rate', s.tier1Rate);
+    localStorage.setItem('comm_tier2Rate', s.tier2Rate);
+    localStorage.setItem('comm_tier3Rate', s.tier3Rate);
+  } catch (e) {
+    console.warn('LocalStorage error:', e);
+  }
+}
+
+function loadSettingsFromStorage() {
+  try {
+    const setVal = (id, key, defaultVal) => {
+      const el = document.getElementById(id);
+      if (el) {
+        const stored = localStorage.getItem(key);
+        el.value = (stored !== null && stored !== '') ? stored : defaultVal;
+      }
+    };
+
+    setVal('companyRate', 'comm_companyRate', DEFAULTS.companyRate);
+    setVal('salesRate', 'comm_salesRate', DEFAULTS.salesRate);
+    setVal('tier1Rate', 'comm_tier1Rate', DEFAULTS.tier1Rate);
+    setVal('tier2Rate', 'comm_tier2Rate', DEFAULTS.tier2Rate);
+    setVal('tier3Rate', 'comm_tier3Rate', DEFAULTS.tier3Rate);
+  } catch (e) {
+    console.warn('LocalStorage error:', e);
+  }
+}
+
+function saveDealsToStorage() {
+  try {
+    localStorage.setItem('comm_deals', JSON.stringify(deals));
+  } catch (e) {
+    console.warn('LocalStorage error:', e);
+  }
+}
+
+function loadDealsFromStorage() {
+  try {
+    const stored = localStorage.getItem('comm_deals');
+    if (stored) {
+      deals = JSON.parse(stored) || [];
+    } else {
+      // Default 3 sample deals for first-time visitors
+      deals = [
+        { id: 'deal_' + Date.now() + '_1', price: 2000000 },
+        { id: 'deal_' + Date.now() + '_2', price: 2500000 },
+        { id: 'deal_' + Date.now() + '_3', price: 3000000 }
+      ];
+    }
+  } catch (e) {
+    deals = [];
+  }
+}
+
+function loadActiveTabFromStorage() {
+  try {
+    const storedTab = localStorage.getItem('comm_activeTab');
+    if (storedTab === 'single' || storedTab === 'tier') {
+      activeTab = storedTab;
+    }
+  } catch (e) {
+    activeTab = 'tier';
+  }
+}
+
+// --- Tab Navigation ---
+function setupTabNavigation() {
+  const tabBtnTier = document.getElementById('tabBtnTier');
+  const tabBtnSingle = document.getElementById('tabBtnSingle');
+
+  if (tabBtnTier) {
+    tabBtnTier.addEventListener('click', () => switchTab('tier'));
+  }
+  if (tabBtnSingle) {
+    tabBtnSingle.addEventListener('click', () => switchTab('single'));
+  }
+
+  // Initial tab view apply
+  switchTab(activeTab);
+}
+
+function switchTab(tabName) {
+  activeTab = tabName;
   const tabBtnTier = document.getElementById('tabBtnTier');
   const tabBtnSingle = document.getElementById('tabBtnSingle');
   const tabContentTier = document.getElementById('tabContentTier');
   const tabContentSingle = document.getElementById('tabContentSingle');
 
-  // --- DOM Elements - Settings ---
-  const companyRateInput = document.getElementById('companyRate');
-  const salesRateInput = document.getElementById('salesRate');
-  const tier1RateInput = document.getElementById('tier1Rate');
-  const tier2RateInput = document.getElementById('tier2Rate');
-  const tier3RateInput = document.getElementById('tier3Rate');
-  const resetSettingsBtn = document.getElementById('resetSettingsBtn');
-  const settingsToggleHeader = document.getElementById('settingsToggleHeader');
-  const settingsBody = document.getElementById('settingsBody');
-  const settingsChevronIcon = document.getElementById('settingsChevronIcon');
+  if (tabName === 'tier') {
+    if (tabBtnTier) tabBtnTier.classList.add('active');
+    if (tabBtnSingle) tabBtnSingle.classList.remove('active');
+    if (tabContentTier) tabContentTier.classList.remove('hidden');
+    if (tabContentSingle) tabContentSingle.classList.add('hidden');
+  } else {
+    if (tabBtnSingle) tabBtnSingle.classList.add('active');
+    if (tabBtnTier) tabBtnTier.classList.remove('active');
+    if (tabContentSingle) tabContentSingle.classList.remove('hidden');
+    if (tabContentTier) tabContentTier.classList.add('hidden');
+  }
 
-  // Tier Visual Badges & Texts
-  const tier1BadgePercent = document.getElementById('tier1BadgePercent');
-  const tier2BadgePercent = document.getElementById('tier2BadgePercent');
-  const tier3BadgePercent = document.getElementById('tier3BadgePercent');
-  const tier1EffectiveText = document.getElementById('tier1EffectiveText');
-  const tier2EffectiveText = document.getElementById('tier2EffectiveText');
-  const tier3EffectiveText = document.getElementById('tier3EffectiveText');
-
-  const summaryTier1RateText = document.getElementById('summaryTier1RateText');
-  const summaryTier2RateText = document.getElementById('summaryTier2RateText');
-  const summaryTier3RateText = document.getElementById('summaryTier3RateText');
-  const summaryTier1AmtText = document.getElementById('summaryTier1AmtText');
-  const summaryTier2AmtText = document.getElementById('summaryTier2AmtText');
-  const summaryTier3AmtText = document.getElementById('summaryTier3AmtText');
-
-  // --- DOM Elements - Single Mode ---
-  const combinedRateText = document.getElementById('combinedRateText');
-  const formulaExplanation = document.getElementById('formulaExplanation');
-  const housePriceInput = document.getElementById('housePriceInput');
-  const clearHousePriceBtn = document.getElementById('clearHousePriceBtn');
-  const resultCompanyComm = document.getElementById('resultCompanyComm');
-  const resultSalesComm = document.getElementById('resultSalesComm');
-  const resultCompanyNet = document.getElementById('resultCompanyNet');
-  const forwardCalcSummary = document.getElementById('forwardCalcSummary');
-
-  const targetCommInput = document.getElementById('targetCommInput');
-  const clearTargetCommBtn = document.getElementById('clearTargetCommBtn');
-  const resultReqHousePrice = document.getElementById('resultReqHousePrice');
-  const resultReqCompanyComm = document.getElementById('resultReqCompanyComm');
-  const resultReqCompanyNet = document.getElementById('resultReqCompanyNet');
-
-  // --- DOM Elements - Tier Cumulative Mode ---
-  const newDealPriceInput = document.getElementById('newDealPriceInput');
-  const addNewDealBtn = document.getElementById('addNewDealBtn');
-  const sampleDataBtn = document.getElementById('sampleDataBtn');
-  const clearAllDealsBtn = document.getElementById('clearAllDealsBtn');
-  const dealsContainer = document.getElementById('dealsContainer');
-  const emptyDealsState = document.getElementById('emptyDealsState');
-
-  const totalDealsCountText = document.getElementById('totalDealsCountText');
-  const totalHouseSalesText = document.getElementById('totalHouseSalesText');
-  const totalSalesCommText = document.getElementById('totalSalesCommText');
-  const totalCompanyCommText = document.getElementById('totalCompanyCommText');
-  const totalCompanyNetText = document.getElementById('totalCompanyNetText');
-
-  // --- DOM Elements - Actions ---
-  const copySummaryBtn = document.getElementById('copySummaryBtn');
-  const printPageBtn = document.getElementById('printPageBtn');
-  const toast = document.getElementById('toast');
-  const toastMessage = document.getElementById('toastMessage');
-
-  // --- Chart Instances ---
-  let singleChart = null;
-  let tierSummaryChart = null;
-
-  // --- Defaults & App State ---
-  const DEFAULTS = {
-    companyRate: 3.0,
-    salesRate: 7.0,
-    tier1Rate: 7.5,
-    tier2Rate: 10.0,
-    tier3Rate: 15.0
-  };
-
-  let activeTab = 'tier'; // 'tier' or 'single'
-  let deals = []; // Array of { id: string, price: number }
-
-  // --- Initialize App ---
-  loadState();
-  initCharts();
-  renderDeals();
-  calculateAll();
-
-  // --- Tab Switching Logic ---
-  tabBtnTier.addEventListener('click', () => switchTab('tier'));
-  tabBtnSingle.addEventListener('click', () => switchTab('single'));
-
-  function switchTab(tab) {
-    activeTab = tab;
-    if (tab === 'tier') {
-      tabBtnTier.classList.add('active');
-      tabBtnSingle.classList.remove('active');
-      tabContentTier.classList.remove('hidden');
-      tabContentSingle.classList.add('hidden');
-      calculateTierMode();
-    } else {
-      tabBtnSingle.classList.add('active');
-      tabBtnTier.classList.remove('active');
-      tabContentSingle.classList.remove('hidden');
-      tabContentTier.classList.add('hidden');
-      calculateSingleMode();
-    }
+  try {
     localStorage.setItem('comm_activeTab', activeTab);
-  }
+  } catch (e) {}
 
-  // --- Settings Toggle ---
-  let isSettingsOpen = true;
-  settingsToggleHeader.addEventListener('click', (e) => {
-    if (e.target.closest('#resetSettingsBtn')) return;
-    isSettingsOpen = !isSettingsOpen;
-    settingsBody.classList.toggle('hidden', !isSettingsOpen);
-    settingsChevronIcon.style.transform = isSettingsOpen ? 'rotate(0deg)' : 'rotate(-90deg)';
+  calculateAll();
+}
+
+// --- Settings Collapsible ---
+function setupSettingsToggle() {
+  const header = document.getElementById('settingsToggleHeader');
+  const body = document.getElementById('settingsBody');
+  const icon = document.getElementById('settingsChevronIcon');
+
+  let isOpen = true;
+  if (header && body) {
+    header.addEventListener('click', (e) => {
+      if (e.target.closest('#resetSettingsBtn')) return;
+      isOpen = !isOpen;
+      body.classList.toggle('hidden', !isOpen);
+      if (icon) {
+        icon.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(-90deg)';
+      }
+    });
+  }
+}
+
+// --- Global Event Listeners (Event Delegation) ---
+function setupGlobalEventListeners() {
+  // Settings Inputs
+  ['companyRate', 'salesRate', 'tier1Rate', 'tier2Rate', 'tier3Rate'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.addEventListener('input', () => {
+        saveSettingsToStorage();
+        calculateAll();
+      });
+    }
   });
 
-  // Settings Input Listeners
-  [companyRateInput, salesRateInput, tier1RateInput, tier2RateInput, tier3RateInput].forEach(input => {
-    input.addEventListener('input', () => {
-      saveSettings();
+  // Reset Settings Button
+  const resetBtn = document.getElementById('resetSettingsBtn');
+  if (resetBtn) {
+    resetBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      document.getElementById('companyRate').value = DEFAULTS.companyRate;
+      document.getElementById('salesRate').value = DEFAULTS.salesRate;
+      document.getElementById('tier1Rate').value = DEFAULTS.tier1Rate;
+      document.getElementById('tier2Rate').value = DEFAULTS.tier2Rate;
+      document.getElementById('tier3Rate').value = DEFAULTS.tier3Rate;
+      saveSettingsToStorage();
       calculateAll();
+      showToast('รีเซ็ตอัตราค่าคอมเริ่มต้นเรียบร้อยแล้ว');
     });
-  });
-
-  resetSettingsBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    companyRateInput.value = DEFAULTS.companyRate;
-    salesRateInput.value = DEFAULTS.salesRate;
-    tier1RateInput.value = DEFAULTS.tier1Rate;
-    tier2RateInput.value = DEFAULTS.tier2Rate;
-    tier3RateInput.value = DEFAULTS.tier3Rate;
-    saveSettings();
-    calculateAll();
-    showToast('รีเซ็ตอัตราค่าคอมเริ่มต้นเรียบร้อยแล้ว');
-  });
-
-  // --- Single Mode Event Listeners ---
-  housePriceInput.addEventListener('input', (e) => {
-    formatInputWithCommas(e.target);
-    calculateSingleForward();
-  });
-
-  clearHousePriceBtn.addEventListener('click', () => {
-    housePriceInput.value = '';
-    calculateSingleForward();
-    housePriceInput.focus();
-  });
-
-  document.querySelectorAll('.chip-house-price').forEach((chip) => {
-    chip.addEventListener('click', () => {
-      const val = chip.getAttribute('data-value');
-      housePriceInput.value = formatNumber(val);
-      calculateSingleForward();
-    });
-  });
-
-  targetCommInput.addEventListener('input', (e) => {
-    formatInputWithCommas(e.target);
-    calculateSingleReverse();
-  });
-
-  clearTargetCommBtn.addEventListener('click', () => {
-    targetCommInput.value = '';
-    calculateSingleReverse();
-    targetCommInput.focus();
-  });
-
-  document.querySelectorAll('.chip-target-comm').forEach((chip) => {
-    chip.addEventListener('click', () => {
-      const val = chip.getAttribute('data-value');
-      targetCommInput.value = formatNumber(val);
-      calculateSingleReverse();
-    });
-  });
-
-  // --- Tier Cumulative Mode Event Listeners ---
-  newDealPriceInput.addEventListener('input', (e) => {
-    formatInputWithCommas(e.target);
-  });
-
-  newDealPriceInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      handleAddDeal();
-    }
-  });
-
-  addNewDealBtn.addEventListener('click', handleAddDeal);
-
-  function handleAddDeal() {
-    const price = parseNumber(newDealPriceInput.value);
-    if (price <= 0) {
-      showToast('กรุณากรอกราคาบ้านที่ถูกต้อง');
-      newDealPriceInput.focus();
-      return;
-    }
-    deals.push({
-      id: 'deal_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
-      price: price
-    });
-    newDealPriceInput.value = '';
-    saveDeals();
-    renderDeals();
-    calculateTierMode();
-    showToast(`เพิ่มรายการบ้านหลังที่ ${deals.length} เรียบร้อยแล้ว`);
   }
 
-  // Quick Chips for New Deal Price
-  document.querySelectorAll('.chip-quick-add').forEach((chip) => {
-    chip.addEventListener('click', () => {
-      const val = chip.getAttribute('data-value');
-      newDealPriceInput.value = formatNumber(val);
-      newDealPriceInput.focus();
+  // New Deal Input (Tier Mode)
+  const newDealInput = document.getElementById('newDealPriceInput');
+  if (newDealInput) {
+    newDealInput.addEventListener('input', (e) => {
+      formatInputFieldWithCommas(e.target);
     });
-  });
+    newDealInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleAddNewDeal();
+      }
+    });
+  }
 
-  sampleDataBtn.addEventListener('click', () => {
-    deals = [
-      { id: 'deal_1', price: 2000000 },
-      { id: 'deal_2', price: 2500000 },
-      { id: 'deal_3', price: 1800000 },
-      { id: 'deal_4', price: 3200000 },
-      { id: 'deal_5', price: 4000000 },
-      { id: 'deal_6', price: 5000000 }
-    ];
-    saveDeals();
-    renderDeals();
-    calculateTierMode();
-    showToast('โหลดตัวอย่างข้อมูล 6 หลังเรียบร้อยแล้ว');
-  });
+  // Add New Deal Button
+  const addBtn = document.getElementById('addNewDealBtn');
+  if (addBtn) {
+    addBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      handleAddNewDeal();
+    });
+  }
 
-  clearAllDealsBtn.addEventListener('click', () => {
-    if (deals.length === 0) return;
-    if (confirm('คุณต้องการล้างรายการบ้านทั้งหมดใช่หรือไม่?')) {
-      deals = [];
-      saveDeals();
+  // Sample Data Button
+  const sampleBtn = document.getElementById('sampleDataBtn');
+  if (sampleBtn) {
+    sampleBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      deals = [
+        { id: 'deal_' + Date.now() + '_1', price: 2000000 },
+        { id: 'deal_' + Date.now() + '_2', price: 2500000 },
+        { id: 'deal_' + Date.now() + '_3', price: 1800000 },
+        { id: 'deal_' + Date.now() + '_4', price: 3200000 },
+        { id: 'deal_' + Date.now() + '_5', price: 4000000 },
+        { id: 'deal_' + Date.now() + '_6', price: 5000000 }
+      ];
+      saveDealsToStorage();
       renderDeals();
       calculateTierMode();
-      showToast('ล้างรายการทั้งหมดแล้ว');
-    }
-  });
-
-  // Action Buttons
-  copySummaryBtn.addEventListener('click', copyCalculationSummary);
-  printPageBtn.addEventListener('click', () => window.print());
-
-  // --- Calculations & Rates Helpers ---
-
-  function getSettings() {
-    return {
-      companyRate: parseFloat(companyRateInput.value) || 0,
-      salesRate: parseFloat(salesRateInput.value) || 0,
-      tier1Rate: parseFloat(tier1RateInput.value) || 0,
-      tier2Rate: parseFloat(tier2RateInput.value) || 0,
-      tier3Rate: parseFloat(tier3RateInput.value) || 0
-    };
-  }
-
-  function getTierForIndex(index) {
-    // index is 1-based (Deal #1, #2, ...)
-    const { tier1Rate, tier2Rate, tier3Rate } = getSettings();
-    if (index <= 3) {
-      return { tier: 1, name: 'Tier 1 (หลังที่ 1-3)', rate: tier1Rate, badgeClass: 'badge-tier-1' };
-    } else if (index <= 5) {
-      return { tier: 2, name: 'Tier 2 (หลังที่ 4-5)', rate: tier2Rate, badgeClass: 'badge-tier-2' };
-    } else {
-      return { tier: 3, name: 'Tier 3 (หลังที่ 6 ขึ้นไป)', rate: tier3Rate, badgeClass: 'badge-tier-3' };
-    }
-  }
-
-  function calculateAll() {
-    updateVisualHeaders();
-    calculateSingleMode();
-    calculateTierMode();
-  }
-
-  function updateVisualHeaders() {
-    const { companyRate, salesRate, tier1Rate, tier2Rate, tier3Rate } = getSettings();
-
-    // Single mode header
-    const combinedRate = (companyRate * salesRate) / 100;
-    const formattedCombined = Number(combinedRate.toFixed(4));
-    combinedRateText.textContent = `${formattedCombined}%`;
-    formulaExplanation.textContent = `พนักงานขายได้ค่าคอม จากราคาบ้านคือ ${companyRate}% × ${salesRate}% = ${formattedCombined}%`;
-
-    // Tier Badges & Effective rates
-    tier1BadgePercent.textContent = `${tier1Rate}%`;
-    tier2BadgePercent.textContent = `${tier2Rate}%`;
-    tier3BadgePercent.textContent = `${tier3Rate}%`;
-
-    summaryTier1RateText.textContent = `${tier1Rate}%`;
-    summaryTier2RateText.textContent = `${tier2Rate}%`;
-    summaryTier3RateText.textContent = `${tier3Rate}%`;
-
-    const t1Effective = Number(((companyRate * tier1Rate) / 100).toFixed(4));
-    const t2Effective = Number(((companyRate * tier2Rate) / 100).toFixed(4));
-    const t3Effective = Number(((companyRate * tier3Rate) / 100).toFixed(4));
-
-    tier1EffectiveText.textContent = `คิดเป็น ${t1Effective}% จากราคาขายบ้าน`;
-    tier2EffectiveText.textContent = `คิดเป็น ${t2Effective}% จากราคาขายบ้าน`;
-    tier3EffectiveText.textContent = `คิดเป็น ${t3Effective}% จากราคาขายบ้าน`;
-
-    updateSingleChart(companyRate, salesRate);
-  }
-
-  // --- Single Mode Calculation ---
-  function calculateSingleMode() {
-    calculateSingleForward();
-    calculateSingleReverse();
-  }
-
-  function calculateSingleForward() {
-    const { companyRate, salesRate } = getSettings();
-    const housePrice = parseNumber(housePriceInput.value);
-
-    if (housePrice > 0 && companyRate > 0) {
-      const companyCommission = (housePrice * companyRate) / 100;
-      const salesCommission = (companyCommission * salesRate) / 100;
-      const companyNet = companyCommission - salesCommission;
-
-      resultCompanyComm.textContent = `${formatCurrency(companyCommission)} บาท`;
-      resultSalesComm.textContent = `${formatCurrency(salesCommission)} บาท`;
-      resultCompanyNet.textContent = `${formatCurrency(companyNet)} บาท`;
-      forwardCalcSummary.classList.remove('opacity-50');
-    } else {
-      resultCompanyComm.textContent = '- บาท';
-      resultSalesComm.textContent = '- บาท';
-      resultCompanyNet.textContent = '- บาท';
-      forwardCalcSummary.classList.add('opacity-50');
-    }
-  }
-
-  function calculateSingleReverse() {
-    const { companyRate, salesRate } = getSettings();
-    const combinedRate = (companyRate * salesRate) / 100;
-    const targetComm = parseNumber(targetCommInput.value);
-
-    if (targetComm > 0 && combinedRate > 0 && salesRate > 0 && companyRate > 0) {
-      const reqHousePrice = targetComm / (combinedRate / 100);
-      const reqCompanyComm = (reqHousePrice * companyRate) / 100;
-      const reqCompanyNet = reqCompanyComm - targetComm;
-
-      resultReqHousePrice.textContent = `${formatCurrency(reqHousePrice)} บาท`;
-      resultReqCompanyComm.textContent = `${formatCurrency(reqCompanyComm)} บาท`;
-      resultReqCompanyNet.textContent = `${formatCurrency(reqCompanyNet)} บาท`;
-    } else {
-      resultReqHousePrice.textContent = '- บาท';
-      resultReqCompanyComm.textContent = '- บาท';
-      resultReqCompanyNet.textContent = '- บาท';
-    }
-  }
-
-  // --- Tier Cumulative Mode Calculation ---
-  function calculateTierMode() {
-    const { companyRate } = getSettings();
-
-    let totalHouseSales = 0;
-    let totalCompanyComm = 0;
-    let totalSalesComm = 0;
-
-    let tier1Count = 0, tier1SalesComm = 0;
-    let tier2Count = 0, tier2SalesComm = 0;
-    let tier3Count = 0, tier3SalesComm = 0;
-
-    deals.forEach((deal, idx) => {
-      const dealNumber = idx + 1;
-      const tierInfo = getTierForIndex(dealNumber);
-      const price = deal.price || 0;
-
-      const compComm = (price * companyRate) / 100;
-      const empComm = (compComm * tierInfo.rate) / 100;
-
-      totalHouseSales += price;
-      totalCompanyComm += compComm;
-      totalSalesComm += empComm;
-
-      if (tierInfo.tier === 1) {
-        tier1Count++;
-        tier1SalesComm += empComm;
-      } else if (tierInfo.tier === 2) {
-        tier2Count++;
-        tier2SalesComm += empComm;
-      } else {
-        tier3Count++;
-        tier3SalesComm += empComm;
-      }
-
-      // Update row UI if present
-      updateDealRowUI(deal.id, dealNumber, price, compComm, empComm, tierInfo);
+      showToast('โหลดตัวอย่างข้อมูล 6 หลังครบทุก Tier แล้ว');
     });
-
-    const totalCompanyNet = totalCompanyComm - totalSalesComm;
-
-    // Update KPI UI
-    totalDealsCountText.textContent = deals.length;
-    totalHouseSalesText.textContent = `${formatCurrency(totalHouseSales)} บาท`;
-    totalSalesCommText.textContent = `${formatCurrency(totalSalesComm)} บาท`;
-    totalCompanyCommText.textContent = `${formatCurrency(totalCompanyComm)} บาท`;
-    totalCompanyNetText.textContent = `${formatCurrency(totalCompanyNet)} บาท`;
-
-    // Tier summaries
-    summaryTier1AmtText.textContent = `${tier1Count} หลัง (${formatCurrency(tier1SalesComm)} บ.)`;
-    summaryTier2AmtText.textContent = `${tier2Count} หลัง (${formatCurrency(tier2SalesComm)} บ.)`;
-    summaryTier3AmtText.textContent = `${tier3Count} หลัง (${formatCurrency(tier3SalesComm)} บ.)`;
-
-    // Update Tier Summary Chart
-    updateTierChart(totalCompanyNet, totalSalesComm, tier1SalesComm, tier2SalesComm, tier3SalesComm);
   }
 
-  // --- Render Deals UI List ---
-  function renderDeals() {
-    if (!dealsContainer) return;
+  // Clear All Deals Button
+  const clearAllBtn = document.getElementById('clearAllDealsBtn');
+  if (clearAllBtn) {
+    clearAllBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (deals.length === 0) return;
+      if (confirm('คุณต้องการล้างรายการบ้านทั้งหมดใช่หรือไม่?')) {
+        deals = [];
+        saveDealsToStorage();
+        renderDeals();
+        calculateTierMode();
+        showToast('ล้างรายการบ้านทั้งหมดเรียบร้อย');
+      }
+    });
+  }
 
-    if (deals.length === 0) {
-      dealsContainer.innerHTML = '';
-      emptyDealsState.classList.remove('hidden');
+  // Single Mode Inputs
+  const housePriceInput = document.getElementById('housePriceInput');
+  if (housePriceInput) {
+    housePriceInput.addEventListener('input', (e) => {
+      formatInputFieldWithCommas(e.target);
+      calculateSingleForward();
+    });
+  }
+
+  const clearHousePriceBtn = document.getElementById('clearHousePriceBtn');
+  if (clearHousePriceBtn) {
+    clearHousePriceBtn.addEventListener('click', () => {
+      if (housePriceInput) {
+        housePriceInput.value = '';
+        calculateSingleForward();
+        housePriceInput.focus();
+      }
+    });
+  }
+
+  const targetCommInput = document.getElementById('targetCommInput');
+  if (targetCommInput) {
+    targetCommInput.addEventListener('input', (e) => {
+      formatInputFieldWithCommas(e.target);
+      calculateSingleReverse();
+    });
+  }
+
+  const clearTargetCommBtn = document.getElementById('clearTargetCommBtn');
+  if (clearTargetCommBtn) {
+    clearTargetCommBtn.addEventListener('click', () => {
+      if (targetCommInput) {
+        targetCommInput.value = '';
+        calculateSingleReverse();
+        targetCommInput.focus();
+      }
+    });
+  }
+
+  // Copy & Print Actions
+  const copyBtn = document.getElementById('copySummaryBtn');
+  if (copyBtn) {
+    copyBtn.addEventListener('click', copyCalculationSummary);
+  }
+
+  const printBtn = document.getElementById('printPageBtn');
+  if (printBtn) {
+    printBtn.addEventListener('click', () => window.print());
+  }
+
+  // Unified Click Handler via Event Delegation for Quick Chips & Dynamic Buttons
+  document.addEventListener('click', (e) => {
+    // 1. Quick Add Chips (.chip-quick-add)
+    const quickAddChip = e.target.closest('.chip-quick-add');
+    if (quickAddChip) {
+      e.preventDefault();
+      const val = quickAddChip.getAttribute('data-value');
+      const input = document.getElementById('newDealPriceInput');
+      if (input && val) {
+        input.value = formatNumber(val);
+        input.focus();
+        showToast(`เลือกราคา ${formatNumber(val)} บาท กดปุ่ม "+ เพิ่มรายการ" เพื่อเพิ่ม`);
+      }
       return;
     }
 
-    emptyDealsState.classList.add('hidden');
-    dealsContainer.innerHTML = '';
-
-    const { companyRate } = getSettings();
-
-    deals.forEach((deal, index) => {
-      const dealNumber = index + 1;
-      const tierInfo = getTierForIndex(dealNumber);
-      const price = deal.price || 0;
-      const compComm = (price * companyRate) / 100;
-      const empComm = (compComm * tierInfo.rate) / 100;
-      const compNet = compComm - empComm;
-
-      const row = document.createElement('div');
-      row.className = 'deal-row p-4 bg-white/90 border border-slate-200/90 shadow-sm';
-      row.id = `row_${deal.id}`;
-
-      row.innerHTML = `
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
-          <div class="flex items-center gap-2">
-            <span class="w-7 h-7 rounded-full bg-slate-800 text-white text-xs font-bold flex items-center justify-center">
-              #${dealNumber}
-            </span>
-            <span class="text-sm font-bold text-slate-800">รายการบ้านหลังที่ ${dealNumber}</span>
-            <span class="${tierInfo.badgeClass} text-[11px] font-bold px-2 py-0.5 rounded-md" id="badge_${deal.id}">
-              Tier ${tierInfo.tier}: ${tierInfo.rate}%
-            </span>
-          </div>
-
-          <button type="button" class="delete-deal-btn text-xs text-rose-500 hover:text-rose-700 hover:bg-rose-50 px-2 py-1 rounded-lg flex items-center gap-1 transition no-print self-end sm:self-auto" data-id="${deal.id}">
-            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
-            <span>ลบ</span>
-          </button>
-        </div>
-
-        <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 mt-3 items-center">
-          
-          <!-- Price input column -->
-          <div class="sm:col-span-5">
-            <label class="block text-[10px] font-semibold text-slate-500 mb-1">ราคาบ้าน (บาท):</label>
-            <div class="highlight-input-container flex items-center px-3 py-1.5">
-              <input type="text" class="deal-price-input highlight-input text-base font-bold" data-id="${deal.id}" value="${formatNumber(price)}" inputmode="numeric">
-              <span class="text-xs font-semibold text-slate-600 ml-1">บ.</span>
-            </div>
-          </div>
-
-          <!-- Calculated Columns -->
-          <div class="sm:col-span-7 grid grid-cols-3 gap-2 text-center sm:text-right">
-            
-            <div class="p-2 rounded-lg bg-sky-50/70 border border-sky-100">
-              <span class="text-[10px] text-sky-800 font-medium block">คอมบริษัท (3%)</span>
-              <span class="text-xs font-bold text-sky-950 block truncate" id="compComm_${deal.id}">${formatCurrency(compComm)}</span>
-            </div>
-
-            <div class="p-2 rounded-lg bg-orange-50/80 border border-orange-100">
-              <span class="text-[10px] text-orange-800 font-medium block">คอมพนักงาน</span>
-              <span class="text-xs font-extrabold text-orange-950 block truncate" id="empComm_${deal.id}">${formatCurrency(empComm)}</span>
-            </div>
-
-            <div class="p-2 rounded-lg bg-emerald-50/70 border border-emerald-100">
-              <span class="text-[10px] text-emerald-800 font-medium block">บริษัทสุทธิ</span>
-              <span class="text-xs font-bold text-emerald-950 block truncate" id="compNet_${deal.id}">${formatCurrency(compNet)}</span>
-            </div>
-
-          </div>
-
-        </div>
-      `;
-
-      dealsContainer.appendChild(row);
-    });
-
-    // Re-initialize Lucide Icons for dynamic content
-    if (window.lucide) {
-      lucide.createIcons();
+    // 2. Single Mode House Price Chips (.chip-house-price)
+    const houseChip = e.target.closest('.chip-house-price');
+    if (houseChip) {
+      e.preventDefault();
+      const val = houseChip.getAttribute('data-value');
+      const input = document.getElementById('housePriceInput');
+      if (input && val) {
+        input.value = formatNumber(val);
+        calculateSingleForward();
+        input.focus();
+      }
+      return;
     }
 
-    // Attach Event Listeners to dynamic rows
-    attachRowListeners();
-  }
+    // 3. Single Mode Target Commission Chips (.chip-target-comm)
+    const targetChip = e.target.closest('.chip-target-comm');
+    if (targetChip) {
+      e.preventDefault();
+      const val = targetChip.getAttribute('data-value');
+      const input = document.getElementById('targetCommInput');
+      if (input && val) {
+        input.value = formatNumber(val);
+        calculateSingleReverse();
+        input.focus();
+      }
+      return;
+    }
 
-  function attachRowListeners() {
-    // Delete buttons
-    document.querySelectorAll('.delete-deal-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const id = btn.getAttribute('data-id');
-        deals = deals.filter(d => d.id !== id);
-        saveDeals();
+    // 4. Dynamic Deal Delete Button (.delete-deal-btn)
+    const deleteBtn = e.target.closest('.delete-deal-btn');
+    if (deleteBtn) {
+      e.preventDefault();
+      const dealId = deleteBtn.getAttribute('data-id');
+      if (dealId) {
+        deals = deals.filter(d => d.id !== dealId);
+        saveDealsToStorage();
         renderDeals();
         calculateTierMode();
-        showToast('ลบรายการเรียบร้อยแล้ว');
-      });
-    });
-
-    // Inline price inputs
-    document.querySelectorAll('.deal-price-input').forEach(input => {
-      input.addEventListener('input', (e) => {
-        formatInputWithCommas(e.target);
-        const id = input.getAttribute('data-id');
-        const deal = deals.find(d => d.id === id);
-        if (deal) {
-          deal.price = parseNumber(input.value);
-          saveDeals();
-          calculateTierMode();
-        }
-      });
-    });
-  }
-
-  function updateDealRowUI(id, dealNumber, price, compComm, empComm, tierInfo) {
-    const badge = document.getElementById(`badge_${id}`);
-    const compCommEl = document.getElementById(`compComm_${id}`);
-    const empCommEl = document.getElementById(`empComm_${id}`);
-    const compNetEl = document.getElementById(`compNet_${id}`);
-
-    if (badge) {
-      badge.className = `${tierInfo.badgeClass} text-[11px] font-bold px-2 py-0.5 rounded-md`;
-      badge.textContent = `Tier ${tierInfo.tier}: ${tierInfo.rate}%`;
+        showToast('ลบรายการบ้านเรียบร้อยแล้ว');
+      }
+      return;
     }
-    if (compCommEl) compCommEl.textContent = formatCurrency(compComm);
-    if (empCommEl) empCommEl.textContent = formatCurrency(empComm);
-    if (compNetEl) compNetEl.textContent = formatCurrency(compComm - empComm);
+  });
+
+  // Unified Input Handler for Dynamic Table Deal Inputs
+  document.addEventListener('input', (e) => {
+    if (e.target && e.target.classList.contains('deal-price-input')) {
+      formatInputFieldWithCommas(e.target);
+      const dealId = e.target.getAttribute('data-id');
+      const deal = deals.find(d => d.id === dealId);
+      if (deal) {
+        deal.price = parseNumber(e.target.value);
+        saveDealsToStorage();
+        calculateTierMode();
+      }
+    }
+  });
+}
+
+// --- Add Deal Handler ---
+function handleAddNewDeal() {
+  const input = document.getElementById('newDealPriceInput');
+  if (!input) return;
+
+  const price = parseNumber(input.value);
+  if (price <= 0) {
+    showToast('⚠️ กรุณากรอกราคาบ้าน เช่น 2,000,000 หรือคลิกปุ่มลัด');
+    input.focus();
+    return;
   }
 
-  // --- Charts Initialization & Updates ---
+  const newDeal = {
+    id: 'deal_' + Date.now() + '_' + Math.floor(Math.random() * 10000),
+    price: price
+  };
 
-  function initCharts() {
-    // 1. Single Mode Chart
-    const singleCtx = document.getElementById('commissionPieChart');
-    if (singleCtx) {
-      const { salesRate } = getSettings();
-      const compShare = Math.max(0, 100 - salesRate);
-      singleChart = new Chart(singleCtx, {
+  deals.push(newDeal);
+  input.value = '';
+  saveDealsToStorage();
+  renderDeals();
+  calculateTierMode();
+
+  showToast(`✅ เพิ่มรายการหลังที่ ${deals.length} (${formatCurrency(price)} บ.) เรียบร้อย`);
+  input.focus();
+}
+
+// --- Tier Calculator Helper ---
+function getTierForIndex(dealNumber) {
+  // dealNumber is 1-based (#1, #2, #3...)
+  const s = getSettings();
+  if (dealNumber <= 3) {
+    return {
+      tier: 1,
+      name: 'Tier 1 (หลังที่ 1-3)',
+      rate: s.tier1Rate,
+      badgeClass: 'badge-tier-1'
+    };
+  } else if (dealNumber <= 5) {
+    return {
+      tier: 2,
+      name: 'Tier 2 (หลังที่ 4-5)',
+      rate: s.tier2Rate,
+      badgeClass: 'badge-tier-2'
+    };
+  } else {
+    return {
+      tier: 3,
+      name: 'Tier 3 (หลังที่ 6 ขึ้นไป)',
+      rate: s.tier3Rate,
+      badgeClass: 'badge-tier-3'
+    };
+  }
+}
+
+// --- Main Calculation Coordinator ---
+function calculateAll() {
+  updateVisualBanners();
+  calculateSingleMode();
+  calculateTierMode();
+}
+
+function updateVisualBanners() {
+  const s = getSettings();
+
+  // Single mode rate banner
+  const combinedRate = (s.companyRate * s.salesRate) / 100;
+  const formattedCombined = Number(combinedRate.toFixed(4));
+  
+  const combinedEl = document.getElementById('combinedRateText');
+  const formulaEl = document.getElementById('formulaExplanation');
+  if (combinedEl) combinedEl.textContent = `${formattedCombined}%`;
+  if (formulaEl) formulaEl.textContent = `พนักงานขายได้ค่าคอม จากราคาบ้านคือ ${s.companyRate}% × ${s.salesRate}% = ${formattedCombined}%`;
+
+  // Tier badges & effective text
+  const t1Badge = document.getElementById('tier1BadgePercent');
+  const t2Badge = document.getElementById('tier2BadgePercent');
+  const t3Badge = document.getElementById('tier3BadgePercent');
+  if (t1Badge) t1Badge.textContent = `${s.tier1Rate}%`;
+  if (t2Badge) t2Badge.textContent = `${s.tier2Rate}%`;
+  if (t3Badge) t3Badge.textContent = `${s.tier3Rate}%`;
+
+  const sT1Rate = document.getElementById('summaryTier1RateText');
+  const sT2Rate = document.getElementById('summaryTier2RateText');
+  const sT3Rate = document.getElementById('summaryTier3RateText');
+  if (sT1Rate) sT1Rate.textContent = `${s.tier1Rate}%`;
+  if (sT2Rate) sT2Rate.textContent = `${s.tier2Rate}%`;
+  if (sT3Rate) sT3Rate.textContent = `${s.tier3Rate}%`;
+
+  const t1Eff = Number(((s.companyRate * s.tier1Rate) / 100).toFixed(4));
+  const t2Eff = Number(((s.companyRate * s.tier2Rate) / 100).toFixed(4));
+  const t3Eff = Number(((s.companyRate * s.tier3Rate) / 100).toFixed(4));
+
+  const t1EffEl = document.getElementById('tier1EffectiveText');
+  const t2EffEl = document.getElementById('tier2EffectiveText');
+  const t3EffEl = document.getElementById('tier3EffectiveText');
+  if (t1EffEl) t1EffEl.textContent = `คิดเป็น ${t1Eff}% จากราคาขายบ้าน`;
+  if (t2EffEl) t2EffEl.textContent = `คิดเป็น ${t2Eff}% จากราคาขายบ้าน`;
+  if (t3EffEl) t3EffEl.textContent = `คิดเป็น ${t3Eff}% จากราคาขายบ้าน`;
+
+  updateSingleChartSafely(s.companyRate, s.salesRate);
+}
+
+// --- Single Mode Logic ---
+function calculateSingleMode() {
+  calculateSingleForward();
+  calculateSingleReverse();
+}
+
+function calculateSingleForward() {
+  const s = getSettings();
+  const housePriceEl = document.getElementById('housePriceInput');
+  const price = parseNumber(housePriceEl ? housePriceEl.value : 0);
+
+  const compCommEl = document.getElementById('resultCompanyComm');
+  const salesCommEl = document.getElementById('resultSalesComm');
+  const compNetEl = document.getElementById('resultCompanyNet');
+  const summaryBox = document.getElementById('forwardCalcSummary');
+
+  if (price > 0 && s.companyRate > 0) {
+    const compComm = (price * s.companyRate) / 100;
+    const salesComm = (compComm * s.salesRate) / 100;
+    const compNet = compComm - salesComm;
+
+    if (compCommEl) compCommEl.textContent = `${formatCurrency(compComm)} บาท`;
+    if (salesCommEl) salesCommEl.textContent = `${formatCurrency(salesComm)} บาท`;
+    if (compNetEl) compNetEl.textContent = `${formatCurrency(compNet)} บาท`;
+    if (summaryBox) summaryBox.classList.remove('opacity-50');
+  } else {
+    if (compCommEl) compCommEl.textContent = '- บาท';
+    if (salesCommEl) salesCommEl.textContent = '- บาท';
+    if (compNetEl) compNetEl.textContent = '- บาท';
+    if (summaryBox) summaryBox.classList.add('opacity-50');
+  }
+}
+
+function calculateSingleReverse() {
+  const s = getSettings();
+  const targetInput = document.getElementById('targetCommInput');
+  const targetComm = parseNumber(targetInput ? targetInput.value : 0);
+  const combinedRate = (s.companyRate * s.salesRate) / 100;
+
+  const reqPriceEl = document.getElementById('resultReqHousePrice');
+  const reqCompEl = document.getElementById('resultReqCompanyComm');
+  const reqNetEl = document.getElementById('resultReqCompanyNet');
+
+  if (targetComm > 0 && combinedRate > 0 && s.salesRate > 0 && s.companyRate > 0) {
+    const reqHousePrice = targetComm / (combinedRate / 100);
+    const reqCompanyComm = (reqHousePrice * s.companyRate) / 100;
+    const reqCompanyNet = reqCompanyComm - targetComm;
+
+    if (reqPriceEl) reqPriceEl.textContent = `${formatCurrency(reqHousePrice)} บาท`;
+    if (reqCompEl) reqCompEl.textContent = `${formatCurrency(reqCompanyComm)} บาท`;
+    if (reqNetEl) reqNetEl.textContent = `${formatCurrency(reqCompanyNet)} บาท`;
+  } else {
+    if (reqPriceEl) reqPriceEl.textContent = '- บาท';
+    if (reqCompEl) reqCompEl.textContent = '- บาท';
+    if (reqNetEl) reqNetEl.textContent = '- บาท';
+  }
+}
+
+// --- Tier Cumulative Mode Logic ---
+function calculateTierMode() {
+  const s = getSettings();
+
+  let totalSales = 0;
+  let totalCompComm = 0;
+  let totalSalesComm = 0;
+
+  let t1Count = 0, t1Comm = 0;
+  let t2Count = 0, t2Comm = 0;
+  let t3Count = 0, t3Comm = 0;
+
+  deals.forEach((deal, index) => {
+    const dealNumber = index + 1;
+    const tierInfo = getTierForIndex(dealNumber);
+    const price = deal.price || 0;
+
+    const compComm = (price * s.companyRate) / 100;
+    const empComm = (compComm * tierInfo.rate) / 100;
+    const compNet = compComm - empComm;
+
+    totalSales += price;
+    totalCompComm += compComm;
+    totalSalesComm += empComm;
+
+    if (tierInfo.tier === 1) {
+      t1Count++;
+      t1Comm += empComm;
+    } else if (tierInfo.tier === 2) {
+      t2Count++;
+      t2Comm += empComm;
+    } else {
+      t3Count++;
+      t3Comm += empComm;
+    }
+
+    // Update row DOM if present
+    const compEl = document.getElementById(`compComm_${deal.id}`);
+    const empEl = document.getElementById(`empComm_${deal.id}`);
+    const netEl = document.getElementById(`compNet_${deal.id}`);
+    const badgeEl = document.getElementById(`badge_${deal.id}`);
+
+    if (compEl) compEl.textContent = formatCurrency(compComm);
+    if (empEl) empEl.textContent = formatCurrency(empComm);
+    if (netEl) netEl.textContent = formatCurrency(compNet);
+    if (badgeEl) {
+      badgeEl.className = `${tierInfo.badgeClass} text-[11px] font-bold px-2 py-0.5 rounded-md`;
+      badgeEl.textContent = `Tier ${tierInfo.tier}: ${tierInfo.rate}%`;
+    }
+  });
+
+  const totalCompNet = totalCompComm - totalSalesComm;
+
+  // Update Summary Dashboard Elements
+  const countEl = document.getElementById('totalDealsCountText');
+  const salesEl = document.getElementById('totalHouseSalesText');
+  const salesCommEl = document.getElementById('totalSalesCommText');
+  const compCommEl = document.getElementById('totalCompanyCommText');
+  const compNetEl = document.getElementById('totalCompanyNetText');
+
+  if (countEl) countEl.textContent = deals.length;
+  if (salesEl) salesEl.textContent = `${formatCurrency(totalSales)} บาท`;
+  if (salesCommEl) salesCommEl.textContent = `${formatCurrency(totalSalesComm)} บาท`;
+  if (compCommEl) compCommEl.textContent = `${formatCurrency(totalCompComm)} บาท`;
+  if (compNetEl) compNetEl.textContent = `${formatCurrency(totalCompNet)} บาท`;
+
+  const sT1Amt = document.getElementById('summaryTier1AmtText');
+  const sT2Amt = document.getElementById('summaryTier2AmtText');
+  const sT3Amt = document.getElementById('summaryTier3AmtText');
+  if (sT1Amt) sT1Amt.textContent = `${t1Count} หลัง (${formatCurrency(t1Comm)} บ.)`;
+  if (sT2Amt) sT2Amt.textContent = `${t2Count} หลัง (${formatCurrency(t2Comm)} บ.)`;
+  if (sT3Amt) sT3Amt.textContent = `${t3Count} หลัง (${formatCurrency(t3Comm)} บ.)`;
+
+  updateTierChartSafely(totalCompNet, totalSalesComm);
+}
+
+// --- Render Deals List UI ---
+function renderDeals() {
+  const container = document.getElementById('dealsContainer');
+  const emptyState = document.getElementById('emptyDealsState');
+  if (!container) return;
+
+  if (deals.length === 0) {
+    container.innerHTML = '';
+    if (emptyState) emptyState.classList.remove('hidden');
+    return;
+  }
+
+  if (emptyState) emptyState.classList.add('hidden');
+  container.innerHTML = '';
+
+  const s = getSettings();
+
+  deals.forEach((deal, idx) => {
+    const dealNumber = idx + 1;
+    const tierInfo = getTierForIndex(dealNumber);
+    const price = deal.price || 0;
+    const compComm = (price * s.companyRate) / 100;
+    const empComm = (compComm * tierInfo.rate) / 100;
+    const compNet = compComm - empComm;
+
+    const row = document.createElement('div');
+    row.className = 'deal-row p-4 bg-white/95 border border-slate-200 shadow-sm transition';
+    row.id = `row_${deal.id}`;
+
+    row.innerHTML = `
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="w-7 h-7 rounded-full bg-slate-800 text-white text-xs font-bold flex items-center justify-center">
+            #${dealNumber}
+          </span>
+          <span class="text-sm font-bold text-slate-800">รายการบ้านหลังที่ ${dealNumber}</span>
+          <span class="${tierInfo.badgeClass} text-[11px] font-bold px-2 py-0.5 rounded-md" id="badge_${deal.id}">
+            Tier ${tierInfo.tier}: ${tierInfo.rate}%
+          </span>
+        </div>
+
+        <button type="button" class="delete-deal-btn text-xs font-medium text-rose-500 hover:text-rose-700 hover:bg-rose-50 px-2.5 py-1 rounded-lg flex items-center gap-1 transition no-print self-end sm:self-auto cursor-pointer" data-id="${deal.id}">
+          <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+          <span>ลบรายการ</span>
+        </button>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 mt-3 items-center">
+        <!-- Editable Price Input -->
+        <div class="sm:col-span-5">
+          <label class="block text-[10px] font-semibold text-slate-500 mb-1">ราคาขายบ้าน (บาท):</label>
+          <div class="highlight-input-container flex items-center px-3 py-1.5">
+            <input type="text" class="deal-price-input highlight-input text-base font-bold" data-id="${deal.id}" value="${formatNumber(price)}" inputmode="numeric">
+            <span class="text-xs font-semibold text-slate-600 ml-1">บาท</span>
+          </div>
+        </div>
+
+        <!-- Breakdown Columns -->
+        <div class="sm:col-span-7 grid grid-cols-3 gap-2 text-center sm:text-right">
+          <div class="p-2 rounded-lg bg-sky-50/70 border border-sky-100">
+            <span class="text-[10px] text-sky-800 font-medium block">คอมบริษัท (3%)</span>
+            <span class="text-xs font-bold text-sky-950 block truncate" id="compComm_${deal.id}">${formatCurrency(compComm)}</span>
+          </div>
+
+          <div class="p-2 rounded-lg bg-orange-50/80 border border-orange-100">
+            <span class="text-[10px] text-orange-800 font-medium block">คอมพนักงาน</span>
+            <span class="text-xs font-extrabold text-orange-950 block truncate" id="empComm_${deal.id}">${formatCurrency(empComm)}</span>
+          </div>
+
+          <div class="p-2 rounded-lg bg-emerald-50/70 border border-emerald-100">
+            <span class="text-[10px] text-emerald-800 font-medium block">บริษัทสุทธิ</span>
+            <span class="text-xs font-bold text-emerald-950 block truncate" id="compNet_${deal.id}">${formatCurrency(compNet)}</span>
+          </div>
+        </div>
+      </div>
+    `;
+
+    container.appendChild(row);
+  });
+
+  if (window.lucide) {
+    window.lucide.createIcons();
+  }
+}
+
+// --- Safe Chart.js Visualizer ---
+function initChartsSafely() {
+  if (typeof Chart === 'undefined') {
+    console.warn('Chart.js library is not available or blocked');
+    return;
+  }
+
+  try {
+    // 1. Single Mode Donut
+    const singleCanvas = document.getElementById('commissionPieChart');
+    if (singleCanvas) {
+      const s = getSettings();
+      const compShare = Math.max(0, 100 - s.salesRate);
+      singleChart = new Chart(singleCanvas, {
         type: 'doughnut',
         data: {
-          labels: ['ส่วนแบ่งบริษัท (คงเหลือ)', 'ส่วนแบ่งพนักงานขาย'],
+          labels: ['บริษัทได้รับสุทธิ', 'ส่วนแบ่งพนักงานขาย'],
           datasets: [{
-            data: [compShare, salesRate],
+            data: [compShare, s.salesRate],
             backgroundColor: ['#38bdf8', '#fb923c'],
             borderColor: ['#ffffff', '#ffffff'],
             borderWidth: 3,
@@ -581,13 +817,13 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
 
-    // 2. Tier Cumulative Mode Chart
-    const tierCtx = document.getElementById('tierSummaryPieChart');
-    if (tierCtx) {
-      tierSummaryChart = new Chart(tierCtx, {
+    // 2. Tier Cumulative Mode Donut
+    const tierCanvas = document.getElementById('tierSummaryPieChart');
+    if (tierCanvas) {
+      tierSummaryChart = new Chart(tierCanvas, {
         type: 'doughnut',
         data: {
-          labels: ['บริษัทได้รับสุทธิ', 'คอมมิชชั่นพนักงาน (รวมทุก Tier)'],
+          labels: ['บริษัทได้รับสุทธิรวม', 'ค่าคอมพนักงานรวมสะสม'],
           datasets: [{
             data: [1, 0],
             backgroundColor: ['#38bdf8', '#fb923c'],
@@ -606,8 +842,8 @@ document.addEventListener('DOMContentLoaded', () => {
             },
             tooltip: {
               callbacks: {
-                label: function(context) {
-                  return ` ${context.label}: ${formatCurrency(context.raw)} บาท`;
+                label: function(ctx) {
+                  return ` ${ctx.label}: ${formatCurrency(ctx.raw)} บาท`;
                 }
               }
             }
@@ -616,191 +852,144 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       });
     }
+  } catch (err) {
+    console.warn('Error initializing charts:', err);
   }
+}
 
-  function updateSingleChart(companyRate, salesRate) {
-    if (!singleChart) return;
+function updateSingleChartSafely(companyRate, salesRate) {
+  if (!singleChart) return;
+  try {
     const compShare = Math.max(0, 100 - salesRate);
     singleChart.data.datasets[0].data = [compShare, salesRate];
     singleChart.update();
 
-    const chartCompanyPercentText = document.getElementById('chartCompanyPercentText');
-    const chartSalesPercentText = document.getElementById('chartSalesPercentText');
-    if (chartCompanyPercentText) chartCompanyPercentText.textContent = `${compShare}%`;
-    if (chartSalesPercentText) chartSalesPercentText.textContent = `${salesRate}%`;
-  }
+    const compTxt = document.getElementById('chartCompanyPercentText');
+    const salesTxt = document.getElementById('chartSalesPercentText');
+    if (compTxt) compTxt.textContent = `${compShare}%`;
+    if (salesTxt) salesTxt.textContent = `${salesRate}%`;
+  } catch (e) {}
+}
 
-  function updateTierChart(companyNet, salesComm, t1Comm, t2Comm, t3Comm) {
-    if (!tierSummaryChart) return;
+function updateTierChartSafely(companyNet, salesComm) {
+  if (!tierSummaryChart) return;
+  try {
     if (companyNet === 0 && salesComm === 0) {
       tierSummaryChart.data.datasets[0].data = [1, 0];
     } else {
       tierSummaryChart.data.datasets[0].data = [companyNet, salesComm];
     }
     tierSummaryChart.update();
-  }
+  } catch (e) {}
+}
 
-  // --- Copy Summary Formatter ---
+// --- Copy Summary ---
+function copyCalculationSummary() {
+  const s = getSettings();
+  let text = '';
 
-  function copyCalculationSummary() {
-    const { companyRate, salesRate, tier1Rate, tier2Rate, tier3Rate } = getSettings();
-    let text = '';
+  if (activeTab === 'tier') {
+    text = `📈 สรุปยอดขายและค่าคอมมิชชั่นสะสมรายเดือน (Tiered Deals)\n`;
+    text += `-----------------------------------------\n`;
+    text += `⚙️ เกณฑ์ส่วนแบ่งตาม Tier:\n`;
+    text += `- อัตราค่าคอมบริษัท: ${s.companyRate}%\n`;
+    text += `- Tier 1 (หลังที่ 1-3): ${s.tier1Rate}% ของค่าคอมบริษัท (${Number(((s.companyRate * s.tier1Rate)/100).toFixed(4))}% ราคาบ้าน)\n`;
+    text += `- Tier 2 (หลังที่ 4-5): ${s.tier2Rate}% ของค่าคอมบริษัท (${Number(((s.companyRate * s.tier2Rate)/100).toFixed(4))}% ราคาบ้าน)\n`;
+    text += `- Tier 3 (หลังที่ 6+): ${s.tier3Rate}% ของค่าคอมบริษัท (${Number(((s.companyRate * s.tier3Rate)/100).toFixed(4))}% ราคาบ้าน)\n\n`;
 
-    if (activeTab === 'tier') {
-      text = `📈 สรุปยอดขายและค่าคอมมิชชั่นสะสมรายเดือน (Tiered Deals)\n`;
-      text += `-----------------------------------------\n`;
-      text += `⚙️ เกณฑ์ส่วนแบ่งตาม Tier:\n`;
-      text += `- อัตราค่าคอมบริษัท: ${companyRate}%\n`;
-      text += `- Tier 1 (หลังที่ 1-3): ${tier1Rate}% ของค่าคอมบริษัท (${Number(((companyRate * tier1Rate) / 100).toFixed(4))}% ราคาบ้าน)\n`;
-      text += `- Tier 2 (หลังที่ 4-5): ${tier2Rate}% ของค่าคอมบริษัท (${Number(((companyRate * tier2Rate) / 100).toFixed(4))}% ราคาบ้าน)\n`;
-      text += `- Tier 3 (หลังที่ 6+): ${tier3Rate}% ของค่าคอมบริษัท (${Number(((companyRate * tier3Rate) / 100).toFixed(4))}% ราคาบ้าน)\n\n`;
+    let totalSales = 0, totalComp = 0, totalEmp = 0;
 
-      let totalSales = 0, totalComp = 0, totalEmp = 0;
+    if (deals.length > 0) {
+      text += `📝 รายการบ้านที่ปิดได้ (${deals.length} รายการ):\n`;
+      deals.forEach((d, i) => {
+        const num = i + 1;
+        const tier = getTierForIndex(num);
+        const cComm = (d.price * s.companyRate) / 100;
+        const eComm = (cComm * tier.rate) / 100;
+        totalSales += d.price;
+        totalComp += cComm;
+        totalEmp += eComm;
 
-      if (deals.length > 0) {
-        text += `📝 รายการบ้านที่ปิดได้ (${deals.length} รายการ):\n`;
-        deals.forEach((d, i) => {
-          const num = i + 1;
-          const tier = getTierForIndex(num);
-          const cComm = (d.price * companyRate) / 100;
-          const eComm = (cComm * tier.rate) / 100;
-          totalSales += d.price;
-          totalComp += cComm;
-          totalEmp += eComm;
+        text += `  #${num} บ้านราคา ${formatCurrency(d.price)} บ. [Tier ${tier.tier}: ${tier.rate}%] -> คอมพนักงาน: ${formatCurrency(eComm)} บ.\n`;
+      });
 
-          text += `  #${num} บ้านราคา ${formatCurrency(d.price)} บ. [Tier ${tier.tier}: ${tier.rate}%] -> คอมพนักงาน: ${formatCurrency(eComm)} บ.\n`;
-        });
-
-        text += `\n📊 ยอดรวมสะสมทั้งสิ้น:\n`;
-        text += `• ยอดขายบ้านรวม: ${formatCurrency(totalSales)} บาท\n`;
-        text += `• ค่าคอมพนักงานรวมสะสม: ${formatCurrency(totalEmp)} บาท\n`;
-        text += `• ค่าคอมบริษัทรวม: ${formatCurrency(totalComp)} บาท\n`;
-        text += `• บริษัทได้รับสุทธิ: ${formatCurrency(totalComp - totalEmp)} บาท\n`;
-      } else {
-        text += `(ยังไม่มีรายการบ้านที่บันทึก)\n`;
-      }
+      text += `\n📊 ยอดรวมสะสมทั้งสิ้น:\n`;
+      text += `• ยอดขายบ้านรวม: ${formatCurrency(totalSales)} บาท\n`;
+      text += `• ค่าคอมพนักงานรวมสะสม: ${formatCurrency(totalEmp)} บาท\n`;
+      text += `• ค่าคอมบริษัทรวม: ${formatCurrency(totalComp)} บาท\n`;
+      text += `• บริษัทได้รับสุทธิ: ${formatCurrency(totalComp - totalEmp)} บาท\n`;
     } else {
-      const housePrice = parseNumber(housePriceInput.value);
-      const targetComm = parseNumber(targetCommInput.value);
-      const combinedRate = (companyRate * salesRate) / 100;
+      text += `(ยังไม่มีรายการบ้านที่บันทึก)\n`;
+    }
+  } else {
+    const housePriceInput = document.getElementById('housePriceInput');
+    const targetCommInput = document.getElementById('targetCommInput');
+    const housePrice = parseNumber(housePriceInput ? housePriceInput.value : 0);
+    const targetComm = parseNumber(targetCommInput ? targetCommInput.value : 0);
+    const combinedRate = (s.companyRate * s.salesRate) / 100;
 
-      text = `🏠 สรุปการคำนวณค่าคอมมิชชั่นอสังหาริมทรัพย์ (รายหลัง)\n`;
-      text += `-----------------------------------------\n`;
-      text += `⚙️ อัตราที่ตั้งไว้: บริษัท ${companyRate}% | พนักงาน ${salesRate}% (คิดเป็น ${Number(combinedRate.toFixed(4))}% ราคาบ้าน)\n\n`;
+    text = `🏠 สรุปการคำนวณค่าคอมมิชชั่นอสังหาริมทรัพย์ (รายหลัง)\n`;
+    text += `-----------------------------------------\n`;
+    text += `⚙️ อัตราที่ตั้งไว้: บริษัท ${s.companyRate}% | พนักงาน ${s.salesRate}% (คิดเป็น ${Number(combinedRate.toFixed(4))}% ราคาบ้าน)\n\n`;
 
-      if (housePrice > 0) {
-        const compComm = (housePrice * companyRate) / 100;
-        const empComm = (compComm * salesRate) / 100;
-        text += `📊 คำนวณจากราคาบ้าน:\n`;
-        text += `- ราคาบ้าน: ${formatCurrency(housePrice)} บาท\n`;
-        text += `- บริษัทได้ค่าคอม (${companyRate}%): ${formatCurrency(compComm)} บาท\n`;
-        text += `- พนักงานขายได้ (${salesRate}%): ${formatCurrency(empComm)} บาท\n`;
-        text += `- บริษัทได้รับสุทธิ: ${formatCurrency(compComm - empComm)} บาท\n\n`;
-      }
-
-      if (targetComm > 0) {
-        const reqPrice = targetComm / (combinedRate / 100);
-        const reqComp = (reqPrice * companyRate) / 100;
-        text += `🎯 คำนวณกลับจากเป้าหมายค่าคอม:\n`;
-        text += `- พนักงานต้องการค่าคอม: ${formatCurrency(targetComm)} บาท\n`;
-        text += `- ต้องขายบ้านราคา: ${formatCurrency(reqPrice)} บาท\n`;
-        text += `- บริษัทได้ค่าคอม: ${formatCurrency(reqComp)} บาท\n\n`;
-      }
+    if (housePrice > 0) {
+      const compComm = (housePrice * s.companyRate) / 100;
+      const empComm = (compComm * s.salesRate) / 100;
+      text += `📊 คำนวณจากราคาบ้าน:\n`;
+      text += `- ราคาบ้าน: ${formatCurrency(housePrice)} บาท\n`;
+      text += `- บริษัทได้ค่าคอม (${s.companyRate}%): ${formatCurrency(compComm)} บาท\n`;
+      text += `- พนักงานขายได้ (${s.salesRate}%): ${formatCurrency(empComm)} บาท\n`;
+      text += `- บริษัทได้รับสุทธิ: ${formatCurrency(compComm - empComm)} บาท\n\n`;
     }
 
-    text += `\nสร้างโดย: WebApp คำนวณค่าคอมมิชชั่นอสังหาริมทรัพย์`;
+    if (targetComm > 0) {
+      const reqPrice = targetComm / (combinedRate / 100);
+      const reqComp = (reqPrice * s.companyRate) / 100;
+      text += `🎯 คำนวณกลับจากเป้าหมายค่าคอม:\n`;
+      text += `- พนักงานต้องการค่าคอม: ${formatCurrency(targetComm)} บาท\n`;
+      text += `- ต้องขายบ้านราคา: ${formatCurrency(reqPrice)} บาท\n`;
+      text += `- บริษัทได้ค่าคอม: ${formatCurrency(reqComp)} บาท\n\n`;
+    }
+  }
 
+  text += `\nสร้างโดย: WebApp คำนวณค่าคอมมิชชั่นอสังหาริมทรัพย์`;
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(text).then(() => {
       showToast('คัดลอกสรุปผลลัพธ์ลง Clipboard เรียบร้อยแล้ว!');
-    }).catch(() => {
-      showToast('ไม่สามารถคัดลอกอัตโนมัติได้');
-    });
+    }).catch(() => fallbackCopy(text));
+  } else {
+    fallbackCopy(text);
   }
+}
 
-  // --- Storage & Helpers ---
-
-  function formatInputWithCommas(input) {
-    const rawValue = input.value.replace(/[^0-9.]/g, '');
-    if (!rawValue) {
-      input.value = '';
-      return;
-    }
-    const parts = rawValue.split('.');
-    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-    if (parts.length > 2) {
-      input.value = parts[0] + '.' + parts.slice(1).join('');
-    } else {
-      input.value = parts.join('.');
-    }
+function fallbackCopy(text) {
+  const textArea = document.createElement('textarea');
+  textArea.value = text;
+  textArea.style.position = 'fixed';
+  textArea.style.left = '-9999px';
+  document.body.appendChild(textArea);
+  textArea.select();
+  try {
+    document.execCommand('copy');
+    showToast('คัดลอกสรุปผลลัพธ์ลง Clipboard เรียบร้อยแล้ว!');
+  } catch (e) {
+    showToast('ไม่สามารถคัดลอกอัตโนมัติได้');
   }
+  document.body.removeChild(textArea);
+}
 
-  function formatNumber(num) {
-    if (isNaN(num) || num === null || num === '') return '';
-    return Number(num).toLocaleString('en-US');
-  }
+// --- Toast Notification ---
+function showToast(msg) {
+  const toast = document.getElementById('toast');
+  const toastMessage = document.getElementById('toastMessage');
+  if (!toast || !toastMessage) return;
 
-  function parseNumber(str) {
-    if (!str) return 0;
-    const cleanStr = String(str).replace(/,/g, '');
-    return parseFloat(cleanStr) || 0;
-  }
-
-  function formatCurrency(num) {
-    if (isNaN(num) || num === null || num === undefined) return '0.00';
-    return Number(num).toLocaleString('th-TH', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    });
-  }
-
-  function showToast(msg) {
-    if (!toast || !toastMessage) return;
-    toastMessage.textContent = msg;
-    toast.classList.add('show');
-    setTimeout(() => toast.classList.remove('show'), 2800);
-  }
-
-  function saveSettings() {
-    const s = getSettings();
-    localStorage.setItem('comm_companyRate', s.companyRate);
-    localStorage.setItem('comm_salesRate', s.salesRate);
-    localStorage.setItem('comm_tier1Rate', s.tier1Rate);
-    localStorage.setItem('comm_tier2Rate', s.tier2Rate);
-    localStorage.setItem('comm_tier3Rate', s.tier3Rate);
-  }
-
-  function saveDeals() {
-    localStorage.setItem('comm_deals', JSON.stringify(deals));
-  }
-
-  function loadState() {
-    companyRateInput.value = localStorage.getItem('comm_companyRate') || DEFAULTS.companyRate;
-    salesRateInput.value = localStorage.getItem('comm_salesRate') || DEFAULTS.salesRate;
-    tier1RateInput.value = localStorage.getItem('comm_tier1Rate') || DEFAULTS.tier1Rate;
-    tier2RateInput.value = localStorage.getItem('comm_tier2Rate') || DEFAULTS.tier2Rate;
-    tier3RateInput.value = localStorage.getItem('comm_tier3Rate') || DEFAULTS.tier3Rate;
-
-    const savedDeals = localStorage.getItem('comm_deals');
-    if (savedDeals) {
-      try {
-        deals = JSON.parse(savedDeals) || [];
-      } catch (e) {
-        deals = [];
-      }
-    } else {
-      // Default sample 3 deals if new user
-      deals = [
-        { id: 'deal_init_1', price: 2000000 },
-        { id: 'deal_init_2', price: 2500000 },
-        { id: 'deal_init_3', price: 3000000 }
-      ];
-    }
-
-    const savedTab = localStorage.getItem('comm_activeTab');
-    if (savedTab) {
-      switchTab(savedTab);
-    } else {
-      switchTab('tier');
-    }
-  }
-});
+  toastMessage.textContent = msg;
+  toast.classList.add('show');
+  
+  if (window._toastTimer) clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(() => {
+    toast.classList.remove('show');
+  }, 2800);
+}

@@ -29,13 +29,13 @@
     
     <!-- Top Header -->
     <header class="mb-6">
-      <div class="flex flex-col sm:flex-row items-center justify-between gap-4 glass-card p-5 sm:p-6 bg-white/75">
+      <div class="flex flex-col sm:flex-row items-center justify-between gap-4 glass-card p-5 sm:p-6 bg-white/80">
         <div class="flex items-center gap-4">
           <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-purple-300 via-pink-200 to-sky-200 flex items-center justify-center shadow-inner text-purple-700 shrink-0">
             <i data-lucide="calculator" class="w-8 h-8"></i>
           </div>
           <div>
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2 flex-wrap">
               <h1 class="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-purple-700 via-pink-600 to-sky-600 bg-clip-text text-transparent">
                 คำนวณ ค่าคอมมิชชั่น
               </h1>
@@ -47,11 +47,11 @@
 
         <!-- Header Actions -->
         <div class="flex items-center gap-2.5 no-print">
-          <button id="copySummaryBtn" class="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-medium bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 shadow-sm transition hover:scale-105 active:scale-95" title="คัดลอกสรุปข้อความ">
+          <button type="button" id="copySummaryBtn" class="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-medium bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 shadow-sm transition hover:scale-105 active:scale-95 cursor-pointer" title="คัดลอกสรุปข้อความ">
             <i data-lucide="copy" class="w-4 h-4 text-purple-600"></i>
             <span>คัดลอกสรุป</span>
           </button>
-          <button id="printPageBtn" class="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-medium bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 shadow-sm transition hover:scale-105 active:scale-95" title="พิมพ์หรือบันทึกเป็น PDF">
+          <button type="button" id="printPageBtn" class="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-medium bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 shadow-sm transition hover:scale-105 active:scale-95 cursor-pointer" title="พิมพ์หรือบันทึกเป็น PDF">
             <i data-lucide="printer" class="w-4 h-4 text-sky-600"></i>
             <span>พิมพ์ / PDF</span>
           </button>
@@ -60,12 +60,12 @@
 
       <!-- Mode Switcher Tabs -->
       <div class="mt-4 p-1.5 glass-card bg-slate-100/80 rounded-2xl flex flex-col sm:flex-row gap-1.5 no-print">
-        <button id="tabBtnTier" class="tab-btn active flex-1 py-3 px-4 flex items-center justify-center gap-2 text-sm font-bold rounded-xl transition">
+        <button type="button" id="tabBtnTier" class="tab-btn active flex-1 py-3 px-4 flex items-center justify-center gap-2 text-sm font-bold rounded-xl transition">
           <i data-lucide="trending-up" class="w-4 h-4 text-purple-600"></i>
           <span>📈 คำนวณสะสมตาม Tier รายเดือน (ยอดขายปิดได้)</span>
           <span class="badge-pastel-peach text-[10px] px-2 py-0.5 rounded-full font-bold">แนะนำ</span>
         </button>
-        <button id="tabBtnSingle" class="tab-btn flex-1 py-3 px-4 flex items-center justify-center gap-2 text-sm font-bold rounded-xl transition">
+        <button type="button" id="tabBtnSingle" class="tab-btn flex-1 py-3 px-4 flex items-center justify-center gap-2 text-sm font-bold rounded-xl transition">
           <i data-lucide="home" class="w-4 h-4 text-sky-600"></i>
           <span>🏠 คำนวณรายหลัง & คำนวณกลับ (Single Deal)</span>
         </button>
@@ -85,11 +85,11 @@
           </div>
         </div>
         <div class="flex items-center gap-3">
-          <button id="resetSettingsBtn" class="text-xs text-slate-500 hover:text-purple-600 flex items-center gap-1 transition no-print">
+          <button type="button" id="resetSettingsBtn" class="text-xs text-slate-500 hover:text-purple-600 flex items-center gap-1 transition no-print cursor-pointer">
             <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
             <span>รีเซ็ตค่าเริ่มต้น</span>
           </button>
-          <button id="settingsChevronBtn" class="p-1 text-slate-400 hover:text-slate-600">
+          <button type="button" id="settingsChevronBtn" class="p-1 text-slate-400 hover:text-slate-600">
             <i data-lucide="chevron-down" id="settingsChevronIcon" class="w-5 h-5 transition-transform duration-200"></i>
           </button>
         </div>
@@ -167,7 +167,7 @@
     </section>
 
     <!-- ========================================================================= -->
-    <!-- TAB 1: MONTHLY CUMULATIVE TIER CALCULATOR (NEW ADVANCED FEATURE) -->
+    <!-- TAB 1: MONTHLY CUMULATIVE TIER CALCULATOR -->
     <!-- ========================================================================= -->
     <div id="tabContentTier" class="tab-content space-y-6">
       
@@ -226,10 +226,10 @@
 
               <!-- Quick List Actions -->
               <div class="flex items-center gap-2 no-print">
-                <button id="sampleDataBtn" class="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 transition" title="ใส่ตัวอย่าง 6 หลัง">
+                <button type="button" id="sampleDataBtn" class="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 transition cursor-pointer" title="ใส่ตัวอย่าง 6 หลัง">
                   🎲 ใส่ตัวอย่าง (6 หลัง)
                 </button>
-                <button id="clearAllDealsBtn" class="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition" title="ล้างรายการทั้งหมด">
+                <button type="button" id="clearAllDealsBtn" class="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition cursor-pointer" title="ล้างรายการทั้งหมด">
                   🗑️ ล้างทั้งหมด
                 </button>
               </div>
@@ -245,7 +245,7 @@
                   <input type="text" id="newDealPriceInput" placeholder="กรอกราคา เช่น 2,500,000" inputmode="numeric" class="highlight-input text-base font-bold placeholder-slate-400">
                   <span class="text-xs font-semibold text-slate-600 ml-2">บาท</span>
                 </div>
-                <button id="addNewDealBtn" class="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl text-sm font-bold shadow-md shadow-purple-200 transition active:scale-95 flex items-center gap-1.5 shrink-0">
+                <button type="button" id="addNewDealBtn" class="px-4 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl text-sm font-bold shadow-md shadow-purple-200 transition active:scale-95 flex items-center gap-1.5 shrink-0 cursor-pointer">
                   <i data-lucide="plus" class="w-4 h-4"></i>
                   <span>เพิ่มรายการ</span>
                 </button>
@@ -418,7 +418,7 @@
                 <label for="housePriceInput" class="text-xs font-semibold text-slate-600">
                   🏡 ราคาบ้าน (บาท) <span class="text-pink-500 font-bold">*</span>
                 </label>
-                <button id="clearHousePriceBtn" class="text-[11px] text-slate-400 hover:text-slate-600 no-print">ล้างค่า</button>
+                <button type="button" id="clearHousePriceBtn" class="text-[11px] text-slate-400 hover:text-slate-600 no-print cursor-pointer">ล้างค่า</button>
               </div>
               
               <div class="highlight-input-container flex items-center px-4 py-3">
@@ -506,7 +506,7 @@
                 <label for="targetCommInput" class="text-xs font-semibold text-slate-600">
                   🎯 ถ้า พนักงานขายอยากได้ค่าคอม (บาท)
                 </label>
-                <button id="clearTargetCommBtn" class="text-[11px] text-slate-400 hover:text-slate-600 no-print">ล้างค่า</button>
+                <button type="button" id="clearTargetCommBtn" class="text-[11px] text-slate-400 hover:text-slate-600 no-print cursor-pointer">ล้างค่า</button>
               </div>
 
               <div class="highlight-input-container flex items-center px-4 py-3">
@@ -645,11 +645,6 @@
     <span id="toastMessage" class="text-sm font-medium">ข้อความแจ้งเตือน</span>
   </div>
 
-  <!-- Lucide Icon Renderer -->
-  <script>
-    lucide.createIcons();
-  </script>
-  
   <!-- Main Application Logic -->
   <script src="app.js"></script>
 </body>
